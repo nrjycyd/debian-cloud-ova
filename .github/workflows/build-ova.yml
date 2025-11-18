@@ -1,32 +1,32 @@
-name: 🚀 Build Debian Cloud Image OVA from GitHub URL
+name: 🚀 Build & Release Debian OVA
 
 on:
-  # 触发工作流的事件
-  push:
-    branches:
-      - master
-      - main
-  # 允许手动触发
+  # 移除 push: branches 触发，仅使用手动触发来控制版本和 Release
+  # 如果需要每次 push 都触发构建，可以保留 push: branches，但需调整 Release 步骤的逻辑。
+  # 现改为只在手动触发时运行：
   workflow_dispatch:
     inputs:
       debian_version:
         description: 'Debian Version/Codename to build (e.g., bookworm, 12, trixie)'
         required: true
         default: 'bookworm'
+      release_tag: # 新增一个输入字段，用于指定 Release 的版本标签
+        description: 'The Git Tag (e.g., v1.0.0) for the Release (Required)'
+        required: true
+        default: 'v1.0.0'
 
 jobs:
   build_ova:
     runs-on: ubuntu-latest
     
     env:
-      TARGET_VERSION: ${{ github.event.inputs.debian_version || 'bookworm' }}
-      # 脚本的 Raw URL，用于直接下载文件内容
+      TARGET_VERSION: ${{ github.event.inputs.debian_version }}
+      RELEASE_TAG: ${{ github.event.inputs.release_tag }}
       SCRIPT_URL: https://raw.githubusercontent.com/burbuja/debian-ova-creator/master/debian-ova-creator.sh
-      SCRIPT_NAME: debian-ova-creator.sh # 脚本的文件名
+      SCRIPT_NAME: debian-ova-creator.sh
 
     steps:
       - name: 1. Checkout Repository Code
-        # 虽然我们要下载外部脚本，但最好还是检出仓库，以便上传 Artifact
         uses: actions/checkout@v4
         
       - name: 2. Install Dependencies (wget & qemu-utils)
@@ -38,9 +38,7 @@ jobs:
       - name: 3. ⬇️ Download and Prepare Script
         run: |
           echo "Downloading script from $SCRIPT_URL"
-          # 使用 wget 下载脚本到当前工作目录
           wget "$SCRIPT_URL" -O "$SCRIPT_NAME"
-          # 赋予执行权限，解决之前遇到的 "No such file or directory" 错误
           chmod +x "$SCRIPT_NAME"
 
       - name: 4. ⚙️ Run OVA Creation Script
@@ -50,35 +48,37 @@ jobs:
           # 执行下载并授权后的脚本
           ./"$SCRIPT_NAME" -d "$TARGET_VERSION"
           
-          # 获取生成的 OVA 文件名（例如 debian-12-genericcloud-amd64.ova）
+          # 获取生成的 OVA 文件名
           FILE_NAME=$(ls debian-*-genericcloud-amd64.ova)
           echo "Generated OVA file: $FILE_NAME"
-          # 将文件名设置为输出变量，供下一步上传 Artifact 使用
           echo "OVA_FILE_NAME=$FILE_NAME" >> $GITHUB_OUTPUT
 
-      # --- 关键更改在这里！ ---
+      # --- 关键更改在这里：使用 softprops/action-gh-release ---
       - name: 5. 🚀 Create GitHub Release and Upload OVA
-        # 仅在 Git Tag 推送触发时执行此步骤。
-        # github.ref_name 是 Tag 名称 (例如: v1.0.0)。
-        if: startsWith(github.ref, 'refs/tags/') 
+        # 仅在手动触发时运行此步骤
+        if: github.event_name == 'workflow_dispatch' 
         uses: softprops/action-gh-release@v2
         with:
           # files: 指定要上传到 Release 的文件路径
           files: ${{ steps.run_script.outputs.OVA_FILE_NAME }}
-          # tag_name: 使用推送的 Tag 名称作为 Release 名称
-          tag_name: ${{ github.ref_name }}
+          # tag_name: 使用手动输入的 Tag 名称
+          tag_name: ${{ env.RELEASE_TAG }}
           # name: Release 在 GitHub 页面上显示的标题
-          name: Debian ${{ env.TARGET_VERSION }} OVA ${{ github.ref_name }}
+          name: Debian ${{ env.TARGET_VERSION }} OVA - ${{ env.RELEASE_TAG }}
           # body: Release 描述内容
           body: |
             ## 🎉 Debian Cloud Image OVA for ${{ env.TARGET_VERSION }}
             
-            This artifact was automatically built using the script from ${{ env.SCRIPT_URL }}.
+            This OVA was automatically built using the script from ${{ env.SCRIPT_URL }}.
             
             - **OVA Asset:** ${{ steps.run_script.outputs.OVA_FILE_NAME }}
             
-          # GITHUB_TOKEN 是由 GitHub 自动提供并具有 Release 创建权限的 secret
+          # generate_release_notes: true 将自动生成 Release Notes
+          draft: false
+          prerelease: false
+          
         env:
+          # 必须提供 GITHUB_TOKEN，用于授权创建 Release
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
       - name: 6. Clean up (Optional)
