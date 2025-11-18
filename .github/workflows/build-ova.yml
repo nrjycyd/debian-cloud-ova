@@ -56,17 +56,33 @@ jobs:
           # 将文件名设置为输出变量，供下一步上传 Artifact 使用
           echo "OVA_FILE_NAME=$FILE_NAME" >> $GITHUB_OUTPUT
 
-      - name: 5. ⬆️ Upload Generated OVA as Artifact
-        uses: actions/upload-artifact@v4
+      # --- 关键更改在这里！ ---
+      - name: 5. 🚀 Create GitHub Release and Upload OVA
+        # 仅在 Git Tag 推送触发时执行此步骤。
+        # github.ref_name 是 Tag 名称 (例如: v1.0.0)。
+        if: startsWith(github.ref, 'refs/tags/') 
+        uses: softprops/action-gh-release@v2
         with:
-          name: debian-${{ env.TARGET_VERSION }}-ova
-          path: ${{ steps.run_script.outputs.OVA_FILE_NAME }}
-          retention-days: 7
-          if-no-files-found: error
+          # files: 指定要上传到 Release 的文件路径
+          files: ${{ steps.run_script.outputs.OVA_FILE_NAME }}
+          # tag_name: 使用推送的 Tag 名称作为 Release 名称
+          tag_name: ${{ github.ref_name }}
+          # name: Release 在 GitHub 页面上显示的标题
+          name: Debian ${{ env.TARGET_VERSION }} OVA ${{ github.ref_name }}
+          # body: Release 描述内容
+          body: |
+            ## 🎉 Debian Cloud Image OVA for ${{ env.TARGET_VERSION }}
+            
+            This artifact was automatically built using the script from ${{ env.SCRIPT_URL }}.
+            
+            - **OVA Asset:** ${{ steps.run_script.outputs.OVA_FILE_NAME }}
+            
+          # GITHUB_TOKEN 是由 GitHub 自动提供并具有 Release 创建权限的 secret
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
       - name: 6. Clean up (Optional)
         if: always()
         run: |
           echo "Build finished. Cleaning up intermediate files..."
-          # 删除下载的 QCOW2 镜像和中间文件
           rm -f *.qcow2 *.ovf *.mf
