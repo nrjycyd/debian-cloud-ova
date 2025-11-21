@@ -166,6 +166,9 @@ chpasswd:
   list: |
     $username:$password
   expire: false
+
+packages:
+  - open-vm-tools
 EOFCONFIG
 
     if [[ -n "$ssh_public_key" ]] && [[ -f "$ssh_public_key" ]]; then
