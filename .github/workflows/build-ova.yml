@@ -1,17 +1,38 @@
 name: 🚀 Build & Release Debian OVA
 
 on:
-  # 移除 push: branches 触发，仅使用手动触发来控制版本和 Release
-  # 如果需要每次 push 都触发构建，可以保留 push: branches，但需调整 Release 步骤的逻辑。
-  # 现改为只在手动触发时运行：
   workflow_dispatch:
     inputs:
       debian_version:
-        description: 'Debian Version/Codename to build (e.g., bookworm, 12, trixie)'
+        description: 'Debian Version/Codename (e.g., bookworm, 12, trixie, bullseye, 11, 13, sid)'
         required: true
         default: 'bookworm'
-      release_tag: # 新增一个输入字段，用于指定 Release 的版本标签
-        description: 'The Git Tag (e.g., v1.0.0) for the Release (Required)'
+      vcpu:
+        description: 'Number of vCPU (default: 2)'
+        required: false
+        default: '2'
+      memory:
+        description: 'Memory size in MB (default: 1024)'
+        required: false
+        default: '1024'
+      disk_size:
+        description: 'Disk size in GB (default: 10)'
+        required: false
+        default: '10'
+      hostname:
+        description: 'Hostname (default: debian-cloud)'
+        required: false
+        default: 'debian-cloud'
+      username:
+        description: 'Default username (default: debian)'
+        required: false
+        default: 'debian'
+      password:
+        description: 'User password (default: 123456)'
+        required: false
+        default: '123456'
+      release_tag:
+        description: 'Git Tag for Release (e.g., v1.0.0)'
         required: true
         default: 'v1.0.0'
 
@@ -21,69 +42,122 @@ jobs:
     
     env:
       TARGET_VERSION: ${{ github.event.inputs.debian_version }}
+      TARGET_VCPU: ${{ github.event.inputs.vcpu }}
+      TARGET_MEMORY: ${{ github.event.inputs.memory }}
+      TARGET_DISK: ${{ github.event.inputs.disk_size }}
+      TARGET_HOSTNAME: ${{ github.event.inputs.hostname }}
+      TARGET_USERNAME: ${{ github.event.inputs.username }}
+      TARGET_PASSWORD: ${{ github.event.inputs.password }}
       RELEASE_TAG: ${{ github.event.inputs.release_tag }}
-      #SCRIPT_URL: https://raw.githubusercontent.com/burbuja/debian-ova-creator/master/debian-ova-creator.sh
-      SCRIPT_URL: https://raw.githubusercontent.com/nrjycyd/debian-cloud/refs/heads/main/.github/workflows/debian-ova-creator-test.sh
-      SCRIPT_NAME: debian-ova-creator.sh
 
     steps:
-      - name: 1. Checkout Repository Code
+      - name: 📥 Checkout Repository
         uses: actions/checkout@v4
         
-      - name: 2. Install Dependencies (wget & qemu-utils)
+      - name: 📦 Install Dependencies
         run: |
-          echo "Updating system packages and installing dependencies..."
-          sudo apt update
-          sudo apt install -y wget qemu-utils
+          echo "Installing dependencies..."
+          sudo apt update -qq
+          sudo apt install -y wget qemu-utils whois
+          echo "✅ Dependencies installed"
 
-      - name: 3. ⬇️ Download and Prepare Script
+      - name: 🔨 Build OVA
+        id: build
         run: |
-          echo "Downloading script from $SCRIPT_URL"
-          wget "$SCRIPT_URL" -O "$SCRIPT_NAME"
-          chmod +x "$SCRIPT_NAME"
-
-      - name: 4. ⚙️ Run OVA Creation Script
-        id: run_script
-        run: |
-          echo "Starting build for Debian version: $TARGET_VERSION"
-          # 执行下载并授权后的脚本
-          ./"$SCRIPT_NAME" -d "$TARGET_VERSION"
+          chmod +x ./debian-ova-creator.sh
           
-          # 获取生成的 OVA 文件名
-          FILE_NAME=$(ls debian-*-genericcloud-amd64.ova)
-          echo "Generated OVA file: $FILE_NAME"
+          echo "Starting OVA build with parameters:"
+          echo "  Debian Version: ${{ env.TARGET_VERSION }}"
+          echo "  vCPU: ${{ env.TARGET_VCPU }}"
+          echo "  Memory: ${{ env.TARGET_MEMORY }}MB"
+          echo "  Disk: ${{ env.TARGET_DISK }}GB"
+          echo "  Hostname: ${{ env.TARGET_HOSTNAME }}"
+          echo "  Username: ${{ env.TARGET_USERNAME }}"
+          
+          ./debian-ova-creator.sh \
+            -d "${{ env.TARGET_VERSION }}" \
+            -c "${{ env.TARGET_VCPU }}" \
+            -m "${{ env.TARGET_MEMORY }}" \
+            -s "${{ env.TARGET_DISK }}" \
+            -H "${{ env.TARGET_HOSTNAME }}" \
+            -u "${{ env.TARGET_USERNAME }}" \
+            -p "${{ env.TARGET_PASSWORD }}"
+          
+          # Get generated OVA file
+          FILE_NAME=$(ls debian-*-genericcloud-amd64*.ova 2>/dev/null | head -1)
+          if [ -z "$FILE_NAME" ]; then
+              echo "❌ Error: OVA file not found"
+              ls -la
+              exit 1
+          fi
+          
+          FILE_SIZE=$(du -h "$FILE_NAME" | cut -f1)
+          echo "✅ Build completed: $FILE_NAME ($FILE_SIZE)"
+          
           echo "OVA_FILE_NAME=$FILE_NAME" >> $GITHUB_OUTPUT
+          echo "OVA_FILE_SIZE=$FILE_SIZE" >> $GITHUB_OUTPUT
 
-      # --- 关键更改在这里：使用 softprops/action-gh-release ---
-      - name: 5. 🚀 Create GitHub Release and Upload OVA
-        # 仅在手动触发时运行此步骤
-        if: github.event_name == 'workflow_dispatch' 
+      - name: 🚀 Create GitHub Release
+        if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          # files: 指定要上传到 Release 的文件路径
-          files: ${{ steps.run_script.outputs.OVA_FILE_NAME }}
-          # tag_name: 使用手动输入的 Tag 名称
+          files: ${{ steps.build.outputs.OVA_FILE_NAME }}
           tag_name: ${{ env.RELEASE_TAG }}
-          # name: Release 在 GitHub 页面上显示的标题
-          name: Debian ${{ env.TARGET_VERSION }} OVA - ${{ env.RELEASE_TAG }}
-          # body: Release 描述内容
+          name: "Debian ${{ env.TARGET_VERSION }} OVA - ${{ env.RELEASE_TAG }}"
           body: |
-            ## 🎉 Debian Cloud Image OVA for ${{ env.TARGET_VERSION }}
+            ## 🎉 Debian Cloud Image OVA
             
-            This OVA was automatically built using the script from ${{ env.SCRIPT_URL }}.
+            **Build Configuration:**
+            - Debian Version: **${{ env.TARGET_VERSION }}**
+            - vCPU: **${{ env.TARGET_VCPU }}**
+            - Memory: **${{ env.TARGET_MEMORY }}MB**
+            - Disk Size: **${{ env.TARGET_DISK }}GB**
+            - Hostname: **${{ env.TARGET_HOSTNAME }}**
+            - Default User: **${{ env.TARGET_USERNAME }}**
+            - File Size: **${{ steps.build.outputs.OVA_FILE_SIZE }}**
+            - Built: **$(date -u +'%Y-%m-%d %H:%M:%S UTC')**
             
-            - **OVA Asset:** ${{ steps.run_script.outputs.OVA_FILE_NAME }}
+            **Quick Start:**
+            1. Download the OVA file from assets
+            2. Import into VMware or compatible hypervisor
+            3. Power on and login with credentials:
+               - Username: `${{ env.TARGET_USERNAME }}`
+               - Password: `${{ env.TARGET_PASSWORD }}`
             
-          # generate_release_notes: true 将自动生成 Release Notes
+            **Cloud-Init Support:**
+            - Custom hostname configuration
+            - User account creation with sudo access
+            - SSH key injection (if provided)
+            - User-data script execution
+            
           draft: false
           prerelease: false
-          
         env:
-          # 必须提供 GITHUB_TOKEN，用于授权创建 Release
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: 6. Clean up (Optional)
+
+      - name: 📊 Build Summary
         if: always()
         run: |
-          echo "Build finished. Cleaning up intermediate files..."
-          rm -f *.qcow2 *.ovf *.mf
+          echo ""
+          echo "╔════════════════════════════════════════╗"
+          echo "║      Debian OVA Build Complete         ║"
+          echo "╠════════════════════════════════════════╣"
+          echo "║ Version: ${{ env.TARGET_VERSION }}"
+          echo "║ vCPU: ${{ env.TARGET_VCPU }}"
+          echo "║ Memory: ${{ env.TARGET_MEMORY }}MB"
+          echo "║ Disk: ${{ env.TARGET_DISK }}GB"
+          echo "║ Hostname: ${{ env.TARGET_HOSTNAME }}"
+          echo "║ Username: ${{ env.TARGET_USERNAME }}"
+          echo "║ Tag: ${{ env.RELEASE_TAG }}"
+          if [ -n "${{ steps.build.outputs.OVA_FILE_NAME }}" ]; then
+            echo "║ File: ${{ steps.build.outputs.OVA_FILE_NAME }}"
+            echo "║ Size: ${{ steps.build.outputs.OVA_FILE_SIZE }}"
+          fi
+          echo "╚════════════════════════════════════════╝"
+          echo ""
+
+      - name: 🧹 Cleanup
+        if: always()
+        run: |
+          rm -f *.qcow2 *.vmdk *.ovf *.mf *.ova 2>/dev/null || true
+          echo "✅ Cleanup completed"
