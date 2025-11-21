@@ -285,6 +285,21 @@ cat > "${FILE_NAME}.ovf" << EOF
         <rasd:ResourceSubType>VmxNet3</rasd:ResourceSubType>
         <rasd:ResourceType>10</rasd:ResourceType>
       </Item>
+      <Item>
+        <rasd:Address>0</rasd:Address>
+        <rasd:Description>IDE Controller</rasd:Description>
+        <rasd:ElementName>IDE Controller 0</rasd:ElementName>
+        <rasd:InstanceID>5</rasd:InstanceID>
+        <rasd:ResourceType>5</rasd:ResourceType>
+      </Item>
+      <Item>
+        <rasd:AddressOnParent>0</rasd:AddressOnParent>
+        <rasd:AutomaticAllocation>true</rasd:AutomaticAllocation>
+        <rasd:ElementName>CD/DVD Drive 1</rasd:ElementName>
+        <rasd:InstanceID>11</rasd:InstanceID>
+        <rasd:Parent>5</rasd:Parent>
+        <rasd:ResourceType>15</rasd:ResourceType>
+      </Item>
     </VirtualHardwareSection>
   </VirtualSystem>
 </Envelope>
