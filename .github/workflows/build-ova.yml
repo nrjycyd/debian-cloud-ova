@@ -22,7 +22,8 @@ jobs:
     env:
       TARGET_VERSION: ${{ github.event.inputs.debian_version }}
       RELEASE_TAG: ${{ github.event.inputs.release_tag }}
-      SCRIPT_URL: https://raw.githubusercontent.com/burbuja/debian-ova-creator/master/debian-ova-creator.sh
+      #SCRIPT_URL: https://raw.githubusercontent.com/burbuja/debian-ova-creator/master/debian-ova-creator.sh
+      SCRIPT_URL: https://github.com/nrjycyd/debian-cloud/blob/main/.github/workflows/debian-ova-creator.sh
       SCRIPT_NAME: debian-ova-creator.sh
 
     steps:
