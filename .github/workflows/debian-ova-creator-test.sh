@@ -10,8 +10,8 @@ set -e
 debver=""
 debarch="amd64"
 cpu_count=2
-mem_size=1024
-disk_size=10
+mem_size=512
+disk_size=4
 disk_type="scsi"        # scsi / ide
 network_type="vmxnet3"  # e1000 / vmxnet3
 
