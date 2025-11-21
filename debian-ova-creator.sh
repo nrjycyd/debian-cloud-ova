@@ -169,6 +169,11 @@ chpasswd:
 
 packages:
   - open-vm-tools
+
+runcmd:
+  - [ systemctl, daemon-reload ]
+  - [ systemctl, enable, open-vm-tools ]
+  - [ systemctl, start, open-vm-tools ]
 EOFCONFIG
 
     if [[ -n "$ssh_public_key" ]] && [[ -f "$ssh_public_key" ]]; then
