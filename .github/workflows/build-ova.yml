@@ -58,7 +58,7 @@ jobs:
         run: |
           echo "Installing dependencies..."
           sudo apt update -qq
-          sudo apt install -y wget qemu-utils
+          sudo apt install -y wget qemu-utils cloud-image-utils
           echo "✅ Dependencies installed"
 
       - name: 🔨 Build OVA
