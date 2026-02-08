@@ -120,7 +120,8 @@ DEBIAN_ARCH="${debarch}"
 # 6.7 -> vmx-14
 # 7.0 -> vmx-17
 # 8.0 -> vmx-19
-VIRTUAL_SYSTEM_TYPE="vmx-17" # vmx-19 适用于 vSphere 7.0 及以上版本
+# VIRTUAL_SYSTEM_TYPE="vmx-19" # vmx-19 适用于 vSphere 7.0 及以上版本
+VIRTUAL_SYSTEM_TYPE="vmx-4" # vmx-14 适用于 esxi6.7
 
 FILE_NAME="debian-${DEBIAN_VERSION}-genericcloud-${DEBIAN_ARCH}"
 FILE_ORIG_EXT="qcow2"
@@ -128,8 +129,10 @@ FILE_DEST_EXT="vmdk"
 FILE_SIGN_EXT="mf"
 FILE_ORIG_URL="https://cloud.debian.org/images/cloud/${DEBIAN_NAME}/latest/${FILE_NAME}.${FILE_ORIG_EXT}"
 
-OVF_OS_ID="96" # Debian 11/12/13 都兼容这个 ID
-OVF_OS_TYPE="debian11_64Guest"
+# OVF_OS_ID="96" # Debian GNU/Linux (64-bit)（较新枚举），Debian 11/12/13 都兼容这个 ID
+# OVF_OS_TYPE="debian11_64Guest"
+OVF_OS_ID="101" # Debian GNU/Linux 10 (64-bit)
+OVF_OS_TYPE="debian10_64Guest"
 
 CURRENT_DATE=$(date +%Y%m%d)
 disk_size_bytes=$((disk_size_gb * 1073741824))
