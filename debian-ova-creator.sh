@@ -129,10 +129,8 @@ FILE_DEST_EXT="vmdk"
 FILE_SIGN_EXT="mf"
 FILE_ORIG_URL="https://cloud.debian.org/images/cloud/${DEBIAN_NAME}/latest/${FILE_NAME}.${FILE_ORIG_EXT}"
 
-# OVF_OS_ID="96" # Debian GNU/Linux (64-bit)（较新枚举），Debian 11/12/13 都兼容这个 ID
-# OVF_OS_TYPE="debian11_64Guest"
-OVF_OS_ID="101" # Debian GNU/Linux 10 (64-bit)
-OVF_OS_TYPE="debian10_64Guest"
+OVF_OS_ID="${OVF_OS_ID:-96}" # Debian GNU/Linux 11 (64-bit)（Debian 11/12/13 通用，ESXi 7.0 U3 支持），可由环境变量覆盖
+OVF_OS_TYPE="${OVF_OS_TYPE:-debian11_64Guest}"
 
 CURRENT_DATE=$(date +%Y%m%d)
 disk_size_bytes=$((disk_size_gb * 1073741824))
