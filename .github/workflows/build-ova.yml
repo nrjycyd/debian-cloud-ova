@@ -4,9 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       debian_version:
-        description: 'Debian 版本/代号（如 bookworm, 12, trixie, bullseye, 11, 13, sid）'
+        description: 'Debian 版本（默认：12/bookworm）'
         required: true
-        default: 'bookworm'
+        default: '12 (bookworm)'
+        type: choice
+        options:
+          - '11 (bullseye)'
+          - '12 (bookworm)'
+          - '13 (trixie)'
       vcpu:
         description: 'vCPU 数量（默认：2）'
         required: false
@@ -92,8 +97,9 @@ jobs:
           # 传给脚本前解析机型部分（选项值带说明，取空格前为 vmx-XX）
           export VIRTUAL_SYSTEM_TYPE="${TARGET_VMX%% *}"
           
+          # 传给脚本前解析版本部分（选项值带说明，取空格前为版本号/代号）
           ./debian-ova-creator.sh \
-            -d "${{ env.TARGET_VERSION }}" \
+            -d "${TARGET_VERSION%% *}" \
             -c "${{ env.TARGET_VCPU }}" \
             -m "${{ env.TARGET_MEMORY }}" \
             -s "${{ env.TARGET_DISK }}" \
