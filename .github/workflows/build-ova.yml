@@ -53,6 +53,16 @@ on:
         description: 'Git 发布标签（如 v1.0.0）'
         required: true
         default: 'v1.0.0'
+      guest_os:
+        description: 'OVF Guest OS 标识（默认：Debian 11；Debian 12/13 选项需 ESXi 8.0+）'
+        required: false
+        default: '96/debian11_64Guest (Debian 11)'
+        type: choice
+        options:
+          - '96/debian11_64Guest (Debian 11)'
+          - '96/debian12_64Guest (Debian 12)'
+          - '96/debian13_64Guest (Debian 13)'
+          - '101/debian10_64Guest (Debian 10)'
 
 jobs:
   build_ova:
@@ -68,6 +78,7 @@ jobs:
       TARGET_USERNAME: ${{ github.event.inputs.username }}
       TARGET_PASSWORD: ${{ github.event.inputs.password }}
       RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+      TARGET_GUEST_OS: ${{ github.event.inputs.guest_os }}
 
     steps:
       - name: 📥 检出仓库
@@ -93,9 +104,14 @@ jobs:
           echo "  ESXi 机型: ${{ env.TARGET_VMX }}"
           echo "  主机名: ${{ env.TARGET_HOSTNAME }}"
           echo "  用户名: ${{ env.TARGET_USERNAME }}"
+          echo "  Guest OS: ${{ env.TARGET_GUEST_OS }}"
           
           # 传给脚本前解析机型部分（选项值带说明，取空格前为 vmx-XX）
           export VIRTUAL_SYSTEM_TYPE="${TARGET_VMX%% *}"
+          # 解析 Guest OS 标识（ID/osType，取空格前的 96/debian11_64Guest 形式）
+          export OVF_OS_ID="${TARGET_GUEST_OS%%/*}"
+          export OVF_OS_TYPE="${TARGET_GUEST_OS#*/}"
+          export OVF_OS_TYPE="${OVF_OS_TYPE%% *}"
           
           # 传给脚本前解析版本部分（选项值带说明，取空格前为版本号/代号）
           ./debian-ova-creator.sh \
