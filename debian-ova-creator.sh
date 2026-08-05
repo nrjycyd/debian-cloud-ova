@@ -227,6 +227,14 @@ else
     echo "✅ Cloud image already exists"
 fi
 
+# 扩容磁盘到指定大小（仅当小于目标时），保证 vmdk 虚拟大小与 OVF capacity 一致
+CURRENT_BYTES=$(qemu-img info --output=json "${FILE_NAME}.${FILE_ORIG_EXT}" | grep -oE '"virtual-size": [0-9]+' | grep -oE '[0-9]+')
+TARGET_BYTES=$((disk_size_gb * 1073741824))
+if [ "$CURRENT_BYTES" -lt "$TARGET_BYTES" ]; then
+    qemu-img resize "${FILE_NAME}.${FILE_ORIG_EXT}" "${disk_size_gb}G"
+    echo "✅ 磁盘已扩容到 ${disk_size_gb}G（开机后 cloud-init growpart 自动扩展根分区）"
+fi
+
 # Convert to VMDK format
 if [ ! -f "${FILE_NAME}.${FILE_DEST_EXT}" ]; then
     echo "🔄 Converting image to VMDK format..."
@@ -364,6 +372,9 @@ tar -cf "${FILE_NAME}.ova" \
 # --- 区域 3: 结束 ---
 
 OVA_SIZE=$(du -h "${FILE_NAME}.ova" | cut -f1)
+
+# 删除 ConfigDrive ISO（已包含在 OVA 中），避免本地构建残留
+rm -f "${ISO_FILE_NAME}"
 
 echo ""
 echo "╔════════════════════════════════════════╗"
