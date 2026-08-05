@@ -19,6 +19,19 @@ on:
         description: 'Disk size in GB (default: 10)'
         required: false
         default: '10'
+      esxi_hardware:
+        description: 'ESXi Virtual Hardware Version (min: vmx-14, default: vmx-14)'
+        required: false
+        default: 'vmx-14'
+        type: choice
+        options:
+          - vmx-14  # ESXi 6.7
+          - vmx-15  # ESXi 7.0
+          - vmx-17  # ESXi 7.0 U1+
+          - vmx-19  # ESXi 7.0 U2+
+          - vmx-20  # ESXi 8.0
+          - vmx-21  # ESXi 8.0 U1
+          - vmx-22  # ESXi 8.0 U2
       hostname:
         description: 'Hostname (default: debian-cloud)'
         required: false
@@ -45,6 +58,7 @@ jobs:
       TARGET_VCPU: ${{ github.event.inputs.vcpu }}
       TARGET_MEMORY: ${{ github.event.inputs.memory }}
       TARGET_DISK: ${{ github.event.inputs.disk_size }}
+      TARGET_VMX: ${{ github.event.inputs.esxi_hardware }}
       TARGET_HOSTNAME: ${{ github.event.inputs.hostname }}
       TARGET_USERNAME: ${{ github.event.inputs.username }}
       TARGET_PASSWORD: ${{ github.event.inputs.password }}
@@ -71,8 +85,12 @@ jobs:
           echo "  vCPU: ${{ env.TARGET_VCPU }}"
           echo "  Memory: ${{ env.TARGET_MEMORY }}MB"
           echo "  Disk: ${{ env.TARGET_DISK }}GB"
+          echo "  ESXi Hardware: ${{ env.TARGET_VMX }}"
           echo "  Hostname: ${{ env.TARGET_HOSTNAME }}"
           echo "  Username: ${{ env.TARGET_USERNAME }}"
+          
+          # 传给脚本（脚本需读环境变量，如 VIRTUAL_SYSTEM_TYPE="${VIRTUAL_SYSTEM_TYPE:-vmx-14}"）
+          export VIRTUAL_SYSTEM_TYPE="${{ env.TARGET_VMX }}"
           
           ./debian-ova-creator.sh \
             -d "${{ env.TARGET_VERSION }}" \
@@ -112,6 +130,7 @@ jobs:
             - vCPU: **${{ env.TARGET_VCPU }}**
             - Memory: **${{ env.TARGET_MEMORY }}MB**
             - Disk Size: **${{ env.TARGET_DISK }}GB**
+            - ESXi Hardware Version: **${{ env.TARGET_VMX }}**
             - Hostname: **${{ env.TARGET_HOSTNAME }}**
             - Default User: **${{ env.TARGET_USERNAME }}**
             - File Size: **${{ steps.build.outputs.OVA_FILE_SIZE }}**
@@ -146,6 +165,7 @@ jobs:
           echo "║ vCPU: ${{ env.TARGET_VCPU }}"
           echo "║ Memory: ${{ env.TARGET_MEMORY }}MB"
           echo "║ Disk: ${{ env.TARGET_DISK }}GB"
+          echo "║ ESXi HW: ${{ env.TARGET_VMX }}"
           echo "║ Hostname: ${{ env.TARGET_HOSTNAME }}"
           echo "║ Username: ${{ env.TARGET_USERNAME }}"
           echo "║ Tag: ${{ env.RELEASE_TAG }}"
