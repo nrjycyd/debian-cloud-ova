@@ -37,6 +37,16 @@ on:
           - 'vmx-20 (ESXi 8.0)'
           - 'vmx-21 (ESXi 8.0 U1)'
           - 'vmx-22 (ESXi 8.0 U2)'
+      guest_os:
+        description: 'OVF Guest OS 标识（默认：Debian 11；Debian 12/13 选项需 ESXi 8.0+）'
+        required: false
+        default: '96/debian11_64Guest (Debian 11)'
+        type: choice
+        options:
+          - '96/debian11_64Guest (Debian 11)'
+          - '96/debian12_64Guest (Debian 12)'
+          - '96/debian13_64Guest (Debian 13)'
+          - '101/debian10_64Guest (Debian 10)'
       hostname:
         description: '主机名（默认：debian-cloud）'
         required: false
@@ -53,16 +63,6 @@ on:
         description: 'Git 发布标签（如 v1.0.0）'
         required: true
         default: 'v1.0.0'
-      guest_os:
-        description: 'OVF Guest OS 标识（默认：Debian 11；Debian 12/13 选项需 ESXi 8.0+）'
-        required: false
-        default: '96/debian11_64Guest (Debian 11)'
-        type: choice
-        options:
-          - '96/debian11_64Guest (Debian 11)'
-          - '96/debian12_64Guest (Debian 12)'
-          - '96/debian13_64Guest (Debian 13)'
-          - '101/debian10_64Guest (Debian 10)'
 
 jobs:
   build_ova:
