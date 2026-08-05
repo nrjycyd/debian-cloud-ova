@@ -38,16 +38,16 @@ on:
           - 'vmx-21 (ESXi 8.0 U1)'
           - 'vmx-22 (ESXi 8.0 U2)'
       guest_os:
-        description: 'OVF Guest OS 标识（默认：Debian 11；选项标注所需 ESXi 版本）'
+        description: 'OVF Guest OS 标识（默认：DGNU 11）'
         required: false
-        default: '96/debian11_64Guest (DGNU 11, ESXi 7.0 U3~8.0)'
+        default: 'DGNU 11, ESXi 7.0 U3~8.0'
         type: choice
         options:
-          - '96/debian9_64Guest (DGNU 9, ESXi ≤6.7)'
-          - '101/debian10_64Guest (DGNU 10, ESXi 6.7 U3~7.0)'
-          - '96/debian11_64Guest (DGNU 11, ESXi 7.0 U3~8.0)'
-          - '96/debian12_64Guest (DGNU 12, ESXi 8.0~8.0 U2)'
-          - '96/debian13_64Guest (DGNU 13, ESXi 8.0 U3+)'
+          - 'DGNU 9, ESXi ≤6.7'
+          - 'DGNU 10, ESXi 6.7 U3~7.0'
+          - 'DGNU 11, ESXi 7.0 U3~8.0'
+          - 'DGNU 12, ESXi 8.0~8.0 U2'
+          - 'DGNU 13, ESXi 8.0 U3+'
       hostname:
         description: '主机名（默认：debian-cloud）'
         required: false
@@ -109,10 +109,15 @@ jobs:
           
           # 传给脚本前解析机型部分（选项值带说明，取空格前为 vmx-XX）
           export VIRTUAL_SYSTEM_TYPE="${TARGET_VMX%% *}"
-          # 解析 Guest OS 标识（ID/osType，取空格前的 96/debian11_64Guest 形式）
-          export OVF_OS_ID="${TARGET_GUEST_OS%%/*}"
-          export OVF_OS_TYPE="${TARGET_GUEST_OS#*/}"
-          export OVF_OS_TYPE="${OVF_OS_TYPE%% *}"
+          # 解析 Guest OS 标识（选项为友好文本，映射回 OVF ID/osType）
+          case "${TARGET_GUEST_OS%%,*}" in
+            "DGNU 9")  export OVF_OS_ID=96;  export OVF_OS_TYPE=debian9_64Guest ;;
+            "DGNU 10") export OVF_OS_ID=101; export OVF_OS_TYPE=debian10_64Guest ;;
+            "DGNU 11") export OVF_OS_ID=96;  export OVF_OS_TYPE=debian11_64Guest ;;
+            "DGNU 12") export OVF_OS_ID=96;  export OVF_OS_TYPE=debian12_64Guest ;;
+            "DGNU 13") export OVF_OS_ID=96;  export OVF_OS_TYPE=debian13_64Guest ;;
+            *) echo "❌ 错误：不支持的 Guest OS 选项: $TARGET_GUEST_OS"; exit 1 ;;
+          esac
           
           # 传给脚本前解析版本部分（选项值带说明，取空格前为版本号/代号）
           ./debian-ova-creator.sh \
