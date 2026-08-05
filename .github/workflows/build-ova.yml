@@ -171,9 +171,20 @@ jobs:
           FILE_SIZE=$(du -h "$FILE_NAME" | cut -f1)
           echo "✅ 构建完成：$FILE_NAME（$FILE_SIZE）"
           
+          # 解析 Debian 官方 build 号（latest 目录页中最大 YYYYMMDD-NNNN），追加到发布标签
+          case "${TARGET_VERSION%% *}" in
+            11) CODENAME="bullseye" ;;
+            12) CODENAME="bookworm" ;;
+            13) CODENAME="trixie" ;;
+          esac
+          DEBIAN_BUILD=$(curl -s "https://cloud.debian.org/images/cloud/${CODENAME}/" | grep -oE '[0-9]{8}-[0-9]+/' | sort -u | tail -1 | tr -d '/')
+          echo "✅ Debian 官方 build 号：$DEBIAN_BUILD"
+          
           echo "OVA_FILE_NAME=$FILE_NAME" >> $GITHUB_OUTPUT
           echo "OVA_FILE_SIZE=$FILE_SIZE" >> $GITHUB_OUTPUT
           echo "BUILD_TIME=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
+          echo "DEBIAN_BUILD=$DEBIAN_BUILD" >> $GITHUB_OUTPUT
+          echo "FINAL_TAG=${{ env.RELEASE_TAG }}-${DEBIAN_BUILD}" >> $GITHUB_OUTPUT
 
       - name: 🚀 创建 GitHub Release
         if: github.event_name == 'workflow_dispatch'
@@ -181,8 +192,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # tag/Release 已存在则先删除（允许重复构建发布，避免幂等失败）
-          if gh release view "${{ env.RELEASE_TAG }}" >/dev/null 2>&1; then
-              gh release delete "${{ env.RELEASE_TAG }}" --yes --cleanup-tag
+          if gh release view "${{ steps.build.outputs.FINAL_TAG }}" >/dev/null 2>&1; then
+              gh release delete "${{ steps.build.outputs.FINAL_TAG }}" --yes --cleanup-tag
               echo "✅ 已删除旧的 Release/Tag"
           fi
           
@@ -191,6 +202,7 @@ jobs:
 
           **构建配置：**
           - Debian 版本：**${{ env.TARGET_VERSION }}**
+          - Debian Build 号：**${{ steps.build.outputs.DEBIAN_BUILD }}**
           - vCPU：**${{ env.TARGET_VCPU }}**
           - 内存：**${{ env.TARGET_MEMORY }}MB**
           - 磁盘大小：**${{ env.TARGET_DISK }}GB**
@@ -215,12 +227,12 @@ jobs:
           EOF
           )
           
-          gh release create "${{ env.RELEASE_TAG }}" \
+          gh release create "${{ steps.build.outputs.FINAL_TAG }}" \
             "${{ steps.build.outputs.OVA_FILE_NAME }}" \
-            --title "Debian ${{ env.TARGET_VERSION }} OVA - ${{ env.RELEASE_TAG }}" \
+            --title "Debian ${{ env.TARGET_VERSION }} OVA - ${{ steps.build.outputs.FINAL_TAG }}" \
             --notes "$RELEASE_NOTES"
           
-          echo "✅ Release 创建完成：${{ env.RELEASE_TAG }}"
+          echo "✅ Release 创建完成：${{ steps.build.outputs.FINAL_TAG }}"
 
       - name: 📊 构建摘要
         if: always()
@@ -236,7 +248,7 @@ jobs:
           echo "║ ESXi 机型: ${{ env.TARGET_VMX }}"
           echo "║ 主机名: ${{ env.TARGET_HOSTNAME }}"
           echo "║ 用户名: ${{ env.TARGET_USERNAME }}"
-          echo "║ 标签: ${{ env.RELEASE_TAG }}"
+          echo "║ 标签: ${{ steps.build.outputs.FINAL_TAG }}"
           if [ -n "${{ steps.build.outputs.OVA_FILE_NAME }}" ]; then
             echo "║ 文件: ${{ steps.build.outputs.OVA_FILE_NAME }}"
             echo "║ 大小: ${{ steps.build.outputs.OVA_FILE_SIZE }}"
