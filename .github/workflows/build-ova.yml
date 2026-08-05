@@ -1,51 +1,51 @@
-name: 🚀 Build & Release Debian OVA
+name: 🚀 构建并发布 Debian OVA
 
 on:
   workflow_dispatch:
     inputs:
       debian_version:
-        description: 'Debian Version/Codename (e.g., bookworm, 12, trixie, bullseye, 11, 13, sid)'
+        description: 'Debian 版本/代号（如 bookworm, 12, trixie, bullseye, 11, 13, sid）'
         required: true
         default: 'bookworm'
       vcpu:
-        description: 'Number of vCPU (default: 2)'
+        description: 'vCPU 数量（默认：2）'
         required: false
         default: '2'
       memory:
-        description: 'Memory size in MB (default: 1024)'
+        description: '内存大小（MB，默认：1024）'
         required: false
         default: '1024'
       disk_size:
-        description: 'Disk size in GB (default: 10)'
+        description: '磁盘大小（GB，默认：10）'
         required: false
         default: '10'
       esxi_hardware:
-        description: 'ESXi Virtual Hardware Version (min: vmx-14, default: vmx-14)'
+        description: 'ESXi 虚拟机硬件版本（最低 vmx-14，默认：vmx-14）'
         required: false
-        default: 'vmx-14'
+        default: 'vmx-14 (ESXi 6.7)'
         type: choice
         options:
-          - vmx-14  # ESXi 6.7
-          - vmx-15  # ESXi 7.0
-          - vmx-17  # ESXi 7.0 U1+
-          - vmx-19  # ESXi 7.0 U2+
-          - vmx-20  # ESXi 8.0
-          - vmx-21  # ESXi 8.0 U1
-          - vmx-22  # ESXi 8.0 U2
+          - 'vmx-14 (ESXi 6.7)'
+          - 'vmx-15 (ESXi 7.0)'
+          - 'vmx-17 (ESXi 7.0 U1+)'
+          - 'vmx-19 (ESXi 7.0 U2+)'
+          - 'vmx-20 (ESXi 8.0)'
+          - 'vmx-21 (ESXi 8.0 U1)'
+          - 'vmx-22 (ESXi 8.0 U2)'
       hostname:
-        description: 'Hostname (default: debian-cloud)'
+        description: '主机名（默认：debian-cloud）'
         required: false
         default: 'debian-cloud'
       username:
-        description: 'Default username (default: debian)'
+        description: '默认用户名（默认：debian）'
         required: false
         default: 'debian'
       password:
-        description: 'User password (default: 123456)'
+        description: '用户密码（默认：123456）'
         required: false
         default: '123456'
       release_tag:
-        description: 'Git Tag for Release (e.g., v1.0.0)'
+        description: 'Git 发布标签（如 v1.0.0）'
         required: true
         default: 'v1.0.0'
 
@@ -65,32 +65,32 @@ jobs:
       RELEASE_TAG: ${{ github.event.inputs.release_tag }}
 
     steps:
-      - name: 📥 Checkout Repository
+      - name: 📥 检出仓库
         uses: actions/checkout@v4
         
-      - name: 📦 Install Dependencies
+      - name: 📦 安装依赖
         run: |
-          echo "Installing dependencies..."
+          echo "正在安装依赖..."
           sudo apt update -qq
           sudo apt install -y wget qemu-utils cloud-image-utils
-          echo "✅ Dependencies installed"
+          echo "✅ 依赖安装完成"
 
-      - name: 🔨 Build OVA
+      - name: 🔨 构建 OVA
         id: build
         run: |
           chmod +x ./debian-ova-creator.sh
           
-          echo "Starting OVA build with parameters:"
-          echo "  Debian Version: ${{ env.TARGET_VERSION }}"
+          echo "开始构建 OVA，参数如下："
+          echo "  Debian 版本: ${{ env.TARGET_VERSION }}"
           echo "  vCPU: ${{ env.TARGET_VCPU }}"
-          echo "  Memory: ${{ env.TARGET_MEMORY }}MB"
-          echo "  Disk: ${{ env.TARGET_DISK }}GB"
-          echo "  ESXi Hardware: ${{ env.TARGET_VMX }}"
-          echo "  Hostname: ${{ env.TARGET_HOSTNAME }}"
-          echo "  Username: ${{ env.TARGET_USERNAME }}"
+          echo "  内存: ${{ env.TARGET_MEMORY }}MB"
+          echo "  磁盘: ${{ env.TARGET_DISK }}GB"
+          echo "  ESXi 机型: ${{ env.TARGET_VMX }}"
+          echo "  主机名: ${{ env.TARGET_HOSTNAME }}"
+          echo "  用户名: ${{ env.TARGET_USERNAME }}"
           
-          # 传给脚本（脚本需读环境变量，如 VIRTUAL_SYSTEM_TYPE="${VIRTUAL_SYSTEM_TYPE:-vmx-14}"）
-          export VIRTUAL_SYSTEM_TYPE="${{ env.TARGET_VMX }}"
+          # 传给脚本前解析机型部分（选项值带说明，取空格前为 vmx-XX）
+          export VIRTUAL_SYSTEM_TYPE="${TARGET_VMX%% *}"
           
           ./debian-ova-creator.sh \
             -d "${{ env.TARGET_VERSION }}" \
@@ -101,21 +101,21 @@ jobs:
             -u "${{ env.TARGET_USERNAME }}" \
             -p "${{ env.TARGET_PASSWORD }}"
           
-          # Get generated OVA file
+          # 查找生成的 OVA 文件
           FILE_NAME=$(ls debian-*-genericcloud-amd64*.ova 2>/dev/null | head -1)
           if [ -z "$FILE_NAME" ]; then
-              echo "❌ Error: OVA file not found"
+              echo "❌ 错误：未找到 OVA 文件"
               ls -la
               exit 1
           fi
           
           FILE_SIZE=$(du -h "$FILE_NAME" | cut -f1)
-          echo "✅ Build completed: $FILE_NAME ($FILE_SIZE)"
+          echo "✅ 构建完成：$FILE_NAME（$FILE_SIZE）"
           
           echo "OVA_FILE_NAME=$FILE_NAME" >> $GITHUB_OUTPUT
           echo "OVA_FILE_SIZE=$FILE_SIZE" >> $GITHUB_OUTPUT
 
-      - name: 🚀 Create GitHub Release
+      - name: 🚀 创建 GitHub Release
         if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
@@ -123,61 +123,61 @@ jobs:
           tag_name: ${{ env.RELEASE_TAG }}
           name: "Debian ${{ env.TARGET_VERSION }} OVA - ${{ env.RELEASE_TAG }}"
           body: |
-            ## 🎉 Debian Cloud Image OVA
+            ## 🎉 Debian 云镜像 OVA
             
-            **Build Configuration:**
-            - Debian Version: **${{ env.TARGET_VERSION }}**
-            - vCPU: **${{ env.TARGET_VCPU }}**
-            - Memory: **${{ env.TARGET_MEMORY }}MB**
-            - Disk Size: **${{ env.TARGET_DISK }}GB**
-            - ESXi Hardware Version: **${{ env.TARGET_VMX }}**
-            - Hostname: **${{ env.TARGET_HOSTNAME }}**
-            - Default User: **${{ env.TARGET_USERNAME }}**
-            - File Size: **${{ steps.build.outputs.OVA_FILE_SIZE }}**
-            - Built: **$(date -u +'%Y-%m-%d %H:%M:%S UTC')**
+            **构建配置：**
+            - Debian 版本：**${{ env.TARGET_VERSION }}**
+            - vCPU：**${{ env.TARGET_VCPU }}**
+            - 内存：**${{ env.TARGET_MEMORY }}MB**
+            - 磁盘大小：**${{ env.TARGET_DISK }}GB**
+            - ESXi 机型版本：**${{ env.TARGET_VMX }}**
+            - 主机名：**${{ env.TARGET_HOSTNAME }}**
+            - 默认用户：**${{ env.TARGET_USERNAME }}**
+            - 文件大小：**${{ steps.build.outputs.OVA_FILE_SIZE }}**
+            - 构建时间：**$(date -u +'%Y-%m-%d %H:%M:%S UTC')**
             
-            **Quick Start:**
-            1. Download the OVA file from assets
-            2. Import into VMware or compatible hypervisor
-            3. Power on and login with credentials:
-               - Username: `${{ env.TARGET_USERNAME }}`
-               - Password: `${{ env.TARGET_PASSWORD }}`
+            **快速开始：**
+            1. 从 Release 资产中下载 OVA 文件
+            2. 导入 VMware 或兼容的虚拟化平台
+            3. 开机并使用以下凭据登录：
+               - 用户名：`${{ env.TARGET_USERNAME }}`
+               - 密码：`${{ env.TARGET_PASSWORD }}`
             
-            **Cloud-Init Support:**
-            - Custom hostname configuration
-            - User account creation with sudo access
-            - SSH key injection (if provided)
-            - User-data script execution
+            **Cloud-Init 支持：**
+            - 自定义主机名配置
+            - 创建带 sudo 权限的用户账户
+            - SSH 公钥注入（如提供）
+            - 执行 user-data 脚本
             
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 📊 Build Summary
+      - name: 📊 构建摘要
         if: always()
         run: |
           echo ""
           echo "╔════════════════════════════════════════╗"
-          echo "║      Debian OVA Build Complete         ║"
+          echo "║      Debian OVA 构建完成           ║"
           echo "╠════════════════════════════════════════╣"
-          echo "║ Version: ${{ env.TARGET_VERSION }}"
+          echo "║ 版本: ${{ env.TARGET_VERSION }}"
           echo "║ vCPU: ${{ env.TARGET_VCPU }}"
-          echo "║ Memory: ${{ env.TARGET_MEMORY }}MB"
-          echo "║ Disk: ${{ env.TARGET_DISK }}GB"
-          echo "║ ESXi HW: ${{ env.TARGET_VMX }}"
-          echo "║ Hostname: ${{ env.TARGET_HOSTNAME }}"
-          echo "║ Username: ${{ env.TARGET_USERNAME }}"
-          echo "║ Tag: ${{ env.RELEASE_TAG }}"
+          echo "║ 内存: ${{ env.TARGET_MEMORY }}MB"
+          echo "║ 磁盘: ${{ env.TARGET_DISK }}GB"
+          echo "║ ESXi 机型: ${{ env.TARGET_VMX }}"
+          echo "║ 主机名: ${{ env.TARGET_HOSTNAME }}"
+          echo "║ 用户名: ${{ env.TARGET_USERNAME }}"
+          echo "║ 标签: ${{ env.RELEASE_TAG }}"
           if [ -n "${{ steps.build.outputs.OVA_FILE_NAME }}" ]; then
-            echo "║ File: ${{ steps.build.outputs.OVA_FILE_NAME }}"
-            echo "║ Size: ${{ steps.build.outputs.OVA_FILE_SIZE }}"
+            echo "║ 文件: ${{ steps.build.outputs.OVA_FILE_NAME }}"
+            echo "║ 大小: ${{ steps.build.outputs.OVA_FILE_SIZE }}"
           fi
           echo "╚════════════════════════════════════════╝"
           echo ""
 
-      - name: 🧹 Cleanup
+      - name: 🧹 清理
         if: always()
         run: |
           rm -f *.qcow2 *.vmdk *.ovf *.mf *.ova 2>/dev/null || true
-          echo "✅ Cleanup completed"
+          echo "✅ 清理完成"
