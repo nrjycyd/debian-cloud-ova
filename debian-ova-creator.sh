@@ -116,12 +116,12 @@ esac
 DEBIAN_VERSION="${debver}"
 DEBIAN_NAME="${debcodename}"
 DEBIAN_ARCH="${debarch}"
-# ESXi compatibility
-# 6.7 -> vmx-14
-# 7.0 -> vmx-17
-# 8.0 -> vmx-19
-# VIRTUAL_SYSTEM_TYPE="vmx-19" # vmx-19 适用于 vSphere 7.0 及以上版本
-VIRTUAL_SYSTEM_TYPE="vmx-14" # vmx-14 适用于 esxi6.7
+# ESXi compatibility (由环境变量覆盖，workflow 传 esxi_hardware 选项)
+# 6.7  -> vmx-14
+# 7.0  -> vmx-15 / vmx-17 (7.0 U1+)
+# 7.0 U2+ -> vmx-19
+# 8.0  -> vmx-20
+VIRTUAL_SYSTEM_TYPE="${VIRTUAL_SYSTEM_TYPE:-vmx-14}" # 默认 vmx-14 (esxi6.7)
 
 FILE_NAME="debian-${DEBIAN_VERSION}-genericcloud-${DEBIAN_ARCH}"
 FILE_ORIG_EXT="qcow2"
