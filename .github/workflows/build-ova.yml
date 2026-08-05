@@ -97,6 +97,23 @@ jobs:
         run: |
           chmod +x ./debian-ova-creator.sh
           
+          # 参数校验（上限防止生成非法 OVF，hostname/密码防 cloud-init 配置破坏）
+          if ! [[ "${{ env.TARGET_VCPU }}" =~ ^[0-9]+$ ]] || [ "${{ env.TARGET_VCPU }}" -lt 1 ] || [ "${{ env.TARGET_VCPU }}" -gt 64 ]; then
+              echo "❌ 错误：vCPU 必须在 1-64 之间"; exit 1
+          fi
+          if ! [[ "${{ env.TARGET_MEMORY }}" =~ ^[0-9]+$ ]] || [ "${{ env.TARGET_MEMORY }}" -lt 256 ] || [ "${{ env.TARGET_MEMORY }}" -gt 262144 ]; then
+              echo "❌ 错误：内存必须在 256-262144 MB 之间"; exit 1
+          fi
+          if ! [[ "${{ env.TARGET_DISK }}" =~ ^[0-9]+$ ]] || [ "${{ env.TARGET_DISK }}" -lt 2 ] || [ "${{ env.TARGET_DISK }}" -gt 2048 ]; then
+              echo "❌ 错误：磁盘必须在 2-2048 GB 之间"; exit 1
+          fi
+          if ! [[ "${{ env.TARGET_HOSTNAME }}" =~ ^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$ ]]; then
+              echo "❌ 错误：主机名不合法（字母/数字/连字符，≤63 字符）"; exit 1
+          fi
+          if [[ -z "${{ env.TARGET_PASSWORD }}" ]] || [[ "${{ env.TARGET_PASSWORD }}" == *:* ]]; then
+              echo "❌ 错误：密码不能为空或含冒号"; exit 1
+          fi
+          
           echo "开始构建 OVA，参数如下："
           echo "  Debian 版本: ${{ env.TARGET_VERSION }}"
           echo "  vCPU: ${{ env.TARGET_VCPU }}"
@@ -118,6 +135,20 @@ jobs:
             "DGNU 13") export OVF_OS_ID=96;  export OVF_OS_TYPE=debian13_64Guest ;;
             *) echo "❌ 错误：不支持的 Guest OS 选项: $TARGET_GUEST_OS"; exit 1 ;;
           esac
+          
+          # 联动校验：Guest OS 所需 ESXi 下限 vs 机型 vmx（防止 6.7 机型配 8.0 的 osType）
+          case "${TARGET_GUEST_OS%%,*}" in
+            "DGNU 9"|"DGNU 10") MIN_VMX="vmx-14" ;;
+            "DGNU 11") MIN_VMX="vmx-19" ;;
+            "DGNU 12") MIN_VMX="vmx-20" ;;
+            "DGNU 13") MIN_VMX="vmx-22" ;;
+          esac
+          VMX_NUM=$((10#${VIRTUAL_SYSTEM_TYPE#vmx-}))
+          MIN_NUM=$((10#${MIN_VMX#vmx-}))
+          if [ "$VMX_NUM" -lt "$MIN_NUM" ]; then
+              echo "❌ 错误：${{ env.TARGET_GUEST_OS }} 需要机型 $MIN_VMX 及以上，当前 $VIRTUAL_SYSTEM_TYPE 不满足"
+              exit 1
+          fi
           
           # 传给脚本前解析版本部分（选项值带说明，取空格前为版本号/代号）
           ./debian-ova-creator.sh \
@@ -142,45 +173,54 @@ jobs:
           
           echo "OVA_FILE_NAME=$FILE_NAME" >> $GITHUB_OUTPUT
           echo "OVA_FILE_SIZE=$FILE_SIZE" >> $GITHUB_OUTPUT
+          echo "BUILD_TIME=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
 
       - name: 🚀 创建 GitHub Release
         if: github.event_name == 'workflow_dispatch'
-        uses: softprops/action-gh-release@v3
-        with:
-          files: ${{ steps.build.outputs.OVA_FILE_NAME }}
-          tag_name: ${{ env.RELEASE_TAG }}
-          name: "Debian ${{ env.TARGET_VERSION }} OVA - ${{ env.RELEASE_TAG }}"
-          body: |
-            ## 🎉 Debian 云镜像 OVA
-            
-            **构建配置：**
-            - Debian 版本：**${{ env.TARGET_VERSION }}**
-            - vCPU：**${{ env.TARGET_VCPU }}**
-            - 内存：**${{ env.TARGET_MEMORY }}MB**
-            - 磁盘大小：**${{ env.TARGET_DISK }}GB**
-            - ESXi 机型版本：**${{ env.TARGET_VMX }}**
-            - 主机名：**${{ env.TARGET_HOSTNAME }}**
-            - 默认用户：**${{ env.TARGET_USERNAME }}**
-            - 文件大小：**${{ steps.build.outputs.OVA_FILE_SIZE }}**
-            - 构建时间：**$(date -u +'%Y-%m-%d %H:%M:%S UTC')**
-            
-            **快速开始：**
-            1. 从 Release 资产中下载 OVA 文件
-            2. 导入 VMware 或兼容的虚拟化平台
-            3. 开机并使用以下凭据登录：
-               - 用户名：`${{ env.TARGET_USERNAME }}`
-               - 密码：`${{ env.TARGET_PASSWORD }}`
-            
-            **Cloud-Init 支持：**
-            - 自定义主机名配置
-            - 创建带 sudo 权限的用户账户
-            - SSH 公钥注入（如提供）
-            - 执行 user-data 脚本
-            
-          draft: false
-          prerelease: false
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # tag/Release 已存在则先删除（允许重复构建发布，避免幂等失败）
+          if gh release view "${{ env.RELEASE_TAG }}" >/dev/null 2>&1; then
+              gh release delete "${{ env.RELEASE_TAG }}" --yes --cleanup-tag
+              echo "✅ 已删除旧的 Release/Tag"
+          fi
+          
+          RELEASE_NOTES=$(cat <<'EOF'
+          ## 🎉 Debian 云镜像 OVA
+
+          **构建配置：**
+          - Debian 版本：**${{ env.TARGET_VERSION }}**
+          - vCPU：**${{ env.TARGET_VCPU }}**
+          - 内存：**${{ env.TARGET_MEMORY }}MB**
+          - 磁盘大小：**${{ env.TARGET_DISK }}GB**
+          - ESXi 机型版本：**${{ env.TARGET_VMX }}**
+          - 主机名：**${{ env.TARGET_HOSTNAME }}**
+          - 默认用户：**${{ env.TARGET_USERNAME }}**
+          - 文件大小：**${{ steps.build.outputs.OVA_FILE_SIZE }}**
+          - 构建时间：**${{ steps.build.outputs.BUILD_TIME }}**
+
+          **快速开始：**
+          1. 从 Release 资产中下载 OVA 文件
+          2. 导入 VMware 或兼容的虚拟化平台
+          3. 开机并使用以下凭据登录：
+             - 用户名：`${{ env.TARGET_USERNAME }}`
+             - 密码：`${{ env.TARGET_PASSWORD }}`
+
+          **Cloud-Init 支持：**
+          - 自定义主机名配置
+          - 创建带 sudo 权限的用户账户
+          - SSH 公钥注入（如提供）
+          - 执行 user-data 脚本
+          EOF
+          )
+          
+          gh release create "${{ env.RELEASE_TAG }}" \
+            "${{ steps.build.outputs.OVA_FILE_NAME }}" \
+            --title "Debian ${{ env.TARGET_VERSION }} OVA - ${{ env.RELEASE_TAG }}" \
+            --notes "$RELEASE_NOTES"
+          
+          echo "✅ Release 创建完成：${{ env.RELEASE_TAG }}"
 
       - name: 📊 构建摘要
         if: always()
@@ -207,5 +247,5 @@ jobs:
       - name: 🧹 清理
         if: always()
         run: |
-          rm -f *.qcow2 *.vmdk *.ovf *.mf *.ova 2>/dev/null || true
+          rm -f *.qcow2 *.vmdk *.ovf *.mf *.ova cidata.iso 2>/dev/null || true
           echo "✅ 清理完成"
