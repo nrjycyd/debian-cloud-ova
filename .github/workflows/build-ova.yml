@@ -6,12 +6,12 @@ on:
       debian_version:
         description: 'Debian 版本（默认：12/bookworm）'
         required: true
-        default: '12 (bookworm)'
+        default: '13'
         type: choice
         options:
-          - '11 (bullseye)'
-          - '12 (bookworm)'
-          - '13 (trixie)'
+          - '11'
+          - '12'
+          - '13'
       vcpu:
         description: 'vCPU 数量（默认：2）'
         required: false
