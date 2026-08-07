@@ -228,7 +228,6 @@ jobs:
           - vCPU：**${{ env.TARGET_VCPU }}**
           - 内存：**${{ env.TARGET_MEMORY }}MB**
           - 磁盘大小：**${{ env.TARGET_DISK }}GB**
-          - ESXi 机型版本：**${{ env.TARGET_BUILD }}**
           - 主机名：**${{ env.TARGET_HOSTNAME }}**
           - 默认用户：**${{ env.TARGET_USERNAME }}**
           - 文件大小：**${{ steps.build.outputs.OVA_FILE_SIZE }}**
