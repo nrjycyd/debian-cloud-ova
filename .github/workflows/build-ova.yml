@@ -6,12 +6,12 @@ on:
       debian_version:
         description: 'Debian 版本（默认：12/bookworm）'
         required: true
-        default: '13'
+        default: '12 (bookworm)'
         type: choice
         options:
-          - '11'
-          - '12'
-          - '13'
+          - '11 (bullseye)'
+          - '12 (bookworm)'
+          - '13 (trixie)'
       vcpu:
         description: 'vCPU 数量（默认：2）'
         required: false
@@ -75,11 +75,11 @@ jobs:
       TARGET_MEMORY: ${{ github.event.inputs.memory }}
       TARGET_DISK: ${{ github.event.inputs.disk_size }}
       TARGET_VMX: ${{ github.event.inputs.esxi_hardware }}
-      TARGET_GUEST_OS: ${{ github.event.inputs.guest_os }}
       TARGET_HOSTNAME: ${{ github.event.inputs.hostname }}
       TARGET_USERNAME: ${{ github.event.inputs.username }}
       TARGET_PASSWORD: ${{ github.event.inputs.password }}
       RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+      TARGET_GUEST_OS: ${{ github.event.inputs.guest_os }}
 
     steps:
       - name: 📥 检出仓库
@@ -95,7 +95,7 @@ jobs:
       - name: 🔨 构建 OVA
         id: build
         run: |
-          chmod +x ./debian-ova-creator.sh
+          chmod +x ./debian-ova-creator-dev.sh
           
           # 参数校验（上限防止生成非法 OVF，hostname/密码防 cloud-init 配置破坏）
           if ! [[ "${{ env.TARGET_VCPU }}" =~ ^[0-9]+$ ]] || [ "${{ env.TARGET_VCPU }}" -lt 1 ] || [ "${{ env.TARGET_VCPU }}" -gt 64 ]; then
@@ -120,9 +120,9 @@ jobs:
           echo "  内存: ${{ env.TARGET_MEMORY }}MB"
           echo "  磁盘: ${{ env.TARGET_DISK }}GB"
           echo "  ESXi 机型: ${{ env.TARGET_VMX }}"
-          echo "  Guest 版本: ${{ env.TARGET_GUEST_OS }}"
           echo "  主机名: ${{ env.TARGET_HOSTNAME }}"
           echo "  用户名: ${{ env.TARGET_USERNAME }}"
+          echo "  Guest OS: ${{ env.TARGET_GUEST_OS }}"
           
           # 传给脚本前解析机型部分（选项值带说明，取空格前为 vmx-XX）
           export VIRTUAL_SYSTEM_TYPE="${TARGET_VMX%% *}"
@@ -151,7 +151,7 @@ jobs:
           fi
           
           # 传给脚本前解析版本部分（选项值带说明，取空格前为版本号/代号）
-          ./debian-ova-creator.sh \
+          ./debian-ova-creator-dev.sh \
             -d "${TARGET_VERSION%% *}" \
             -c "${{ env.TARGET_VCPU }}" \
             -m "${{ env.TARGET_MEMORY }}" \
@@ -160,8 +160,8 @@ jobs:
             -u "${{ env.TARGET_USERNAME }}" \
             -p "${{ env.TARGET_PASSWORD }}"
           
-          # 查找生成的 OVA 文件
-          FILE_NAME=$(ls debian-*-genericcloud-amd64*.ova 2>/dev/null | head -1)
+          # 查找本次构建生成的 OVA（只匹配新命名格式，不会误选之前的旧版本文件）
+          FILE_NAME=$(ls debian*-generic-cloud-*.ova 2>/dev/null | head -1)
           if [ -z "$FILE_NAME" ]; then
               echo "❌ 错误：未找到 OVA 文件"
               ls -la
@@ -206,8 +206,7 @@ jobs:
           - vCPU：**${{ env.TARGET_VCPU }}**
           - 内存：**${{ env.TARGET_MEMORY }}MB**
           - 磁盘大小：**${{ env.TARGET_DISK }}GB**
-          - ESXi 机型：**${{ env.TARGET_VMX }}**
-          - Guest 版本：**${{ env.TARGET_GUEST_OS }}**
+          - ESXi 机型版本：**${{ env.TARGET_VMX }}**
           - 主机名：**${{ env.TARGET_HOSTNAME }}**
           - 默认用户：**${{ env.TARGET_USERNAME }}**
           - 文件大小：**${{ steps.build.outputs.OVA_FILE_SIZE }}**
@@ -247,7 +246,6 @@ jobs:
           echo "║ 内存: ${{ env.TARGET_MEMORY }}MB"
           echo "║ 磁盘: ${{ env.TARGET_DISK }}GB"
           echo "║ ESXi 机型: ${{ env.TARGET_VMX }}"
-          echo "║ Guest 版本: ${{ env.TARGET_GUEST_OS }}"
           echo "║ 主机名: ${{ env.TARGET_HOSTNAME }}"
           echo "║ 用户名: ${{ env.TARGET_USERNAME }}"
           echo "║ 标签: ${{ steps.build.outputs.FINAL_TAG }}"
