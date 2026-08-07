@@ -87,6 +87,16 @@ if [[ -n "$ssh_public_key" ]] && [[ ! -f "$ssh_public_key" ]]; then
     exit 1
 fi
 
+# Validate username/password characters（防换行符注入 chpasswd / YAML 破坏）
+if ! [[ "$username" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
+    echo "❌ Error: Username must match [a-z_][a-z0-9_-]{0,31}" >&2
+    exit 1
+fi
+if ! [[ "$password" =~ ^[A-Za-z0-9@#%+=.,_-]+$ ]]; then
+    echo "❌ Error: Password contains invalid characters (allowed: letters/digits/@#%+=.,_-)" >&2
+    exit 1
+fi
+
 # Map Debian version to codename
 case "$debver" in
     11|bullseye)
@@ -254,7 +264,15 @@ if [ "$CURRENT_BYTES" -lt "$TARGET_BYTES" ]; then
     echo "✅ 磁盘已扩容到 ${disk_size_gb}G（开机后 cloud-init growpart 自动扩展根分区）"
 fi
 
-# Convert to VMDK format
+# Convert to VMDK format（本地重跑换 -s 时旧 vmdk 虚拟大小与目标不符，删除重转）
+VMDK_BYTES=""
+if [ -f "${FILE_NAME}.${FILE_DEST_EXT}" ]; then
+    VMDK_BYTES=$(qemu-img info --output=json "${FILE_NAME}.${FILE_DEST_EXT}" | grep -oE '"virtual-size": [0-9]+' | grep -oE '[0-9]+')
+fi
+if [ -f "${FILE_NAME}.${FILE_DEST_EXT}" ] && [ "$VMDK_BYTES" != "$TARGET_BYTES" ]; then
+    echo "⚠️ VMDK 虚拟大小(${VMDK_BYTES})与目标(${TARGET_BYTES})不符，删除重转"
+    rm -f "${FILE_NAME}.${FILE_DEST_EXT}"
+fi
 if [ ! -f "${FILE_NAME}.${FILE_DEST_EXT}" ]; then
     echo "🔄 Converting image to VMDK format..."
     qemu-img convert -f "$FILE_ORIG_EXT" -O "$FILE_DEST_EXT" -o subformat=streamOptimized \
