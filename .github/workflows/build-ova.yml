@@ -95,7 +95,7 @@ jobs:
       - name: 🔨 构建 OVA
         id: build
         run: |
-          chmod +x ./debian-ova-creator-dev.sh
+          chmod +x ./debian-ova-creator-20260807.sh
           
           # 参数校验（上限防止生成非法 OVF，hostname/密码防 cloud-init 配置破坏）
           if ! [[ "${{ env.TARGET_VCPU }}" =~ ^[0-9]+$ ]] || [ "${{ env.TARGET_VCPU }}" -lt 1 ] || [ "${{ env.TARGET_VCPU }}" -gt 64 ]; then
@@ -151,7 +151,7 @@ jobs:
           fi
           
           # 传给脚本前解析版本部分（选项值带说明，取空格前为版本号/代号）
-          ./debian-ova-creator-dev.sh \
+          ./debian-ova-creator-20260807.sh \
             -d "${TARGET_VERSION%% *}" \
             -c "${{ env.TARGET_VCPU }}" \
             -m "${{ env.TARGET_MEMORY }}" \
