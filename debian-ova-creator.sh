@@ -99,6 +99,10 @@ fi
 
 # Map Debian version to codename
 case "$debver" in
+    10|buster)
+        debver="10"
+        debcodename="buster"
+        ;;
     11|bullseye)
         debver="11"
         debcodename="bullseye"
@@ -133,13 +137,19 @@ DEBIAN_ARCH="${debarch}"
 # 8.0  -> vmx-20
 VIRTUAL_SYSTEM_TYPE="${VIRTUAL_SYSTEM_TYPE:-vmx-14}" # 默认 vmx-14 (esxi6.7)
 
-FILE_NAME="debian-${DEBIAN_VERSION}-genericcloud-${DEBIAN_ARCH}"
+# Debian 10 及更早的云端镜像命名为 generic（genericcloud 命名自 Debian 11 起）
+if [ "$DEBIAN_VERSION" = "10" ]; then
+    FILE_NAME="debian-10-generic-${DEBIAN_ARCH}"
+else
+    FILE_NAME="debian-${DEBIAN_VERSION}-genericcloud-${DEBIAN_ARCH}"
+fi
 
 # ─── 固件显示名（仅影响最终 OVA 文件名，下载/内部引用仍用 FILE_NAME）───
 case "${VIRTUAL_SYSTEM_TYPE%% *}" in
   vmx-14)                    ESXI_TAG="esxi67" ;;
-  vmx-15|vmx-17|vmx-19)      ESXI_TAG="esxi7" ;;
-  vmx-20|vmx-21|vmx-22)      ESXI_TAG="esxi8" ;;
+  vmx-17|vmx-18|vmx-19)      ESXI_TAG="esxi7" ;;
+  vmx-20|vmx-21)             ESXI_TAG="esxi8" ;;
+  vmx-22)                    ESXI_TAG="esxi9" ;;
   *)                         ESXI_TAG="esxi$((${VIRTUAL_SYSTEM_TYPE#vmx-}/3+2))" ;;
 esac
 FILE_ORIG_EXT="qcow2"
@@ -147,8 +157,11 @@ FILE_DEST_EXT="vmdk"
 FILE_SIGN_EXT="mf"
 FILE_ORIG_URL="https://cloud.debian.org/images/cloud/${DEBIAN_NAME}/latest/${FILE_NAME}.${FILE_ORIG_EXT}"
 
-OVF_OS_ID="${OVF_OS_ID:-96}" # Debian GNU/Linux 11 (64-bit)（Debian 11/12/13 通用，ESXi 7.0 U3 支持），可由环境变量覆盖
-OVF_OS_TYPE="${OVF_OS_TYPE:-debian11_64Guest}"
+# 默认 osType（可由环境变量覆盖，workflow 始终显式传值）；Debian 10 用 101/debian10_64Guest
+case "${DEBIAN_VERSION}" in
+  10) OVF_OS_ID="${OVF_OS_ID:-101}"; OVF_OS_TYPE="${OVF_OS_TYPE:-debian10_64Guest}" ;;
+  *)  OVF_OS_ID="${OVF_OS_ID:-96}";  OVF_OS_TYPE="${OVF_OS_TYPE:-debian11_64Guest}" ;;
+esac
 
 # Guest OS 显示标识（dgnuXX，由 OVF_OS_TYPE 推导，仅影响最终 OVA 文件名）
 case "${OVF_OS_TYPE}" in
