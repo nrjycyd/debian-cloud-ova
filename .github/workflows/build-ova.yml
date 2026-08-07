@@ -191,12 +191,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # tag/Release 已存在则先删除（允许重复构建发布，避免幂等失败）
-          if gh release view "${{ steps.build.outputs.FINAL_TAG }}" >/dev/null 2>&1; then
-              gh release delete "${{ steps.build.outputs.FINAL_TAG }}" --yes --cleanup-tag
-              echo "✅ 已删除旧的 Release/Tag"
-          fi
-          
           RELEASE_NOTES=$(cat <<'EOF'
           ## 🎉 Debian 云镜像 OVA
 
@@ -226,13 +220,19 @@ jobs:
           - 执行 user-data 脚本
           EOF
           )
-          
-          gh release create "${{ steps.build.outputs.FINAL_TAG }}" \
-            "${{ steps.build.outputs.OVA_FILE_NAME }}" \
-            --title "Debian ${{ env.TARGET_VERSION }} OVA - ${{ steps.build.outputs.FINAL_TAG }}" \
-            --notes "$RELEASE_NOTES"
-          
-          echo "✅ Release 创建完成：${{ steps.build.outputs.FINAL_TAG }}"
+
+          # 同 tag 复用：Release 已存在则追加 OVA 资产（保留之前编译的其他 ESXi 版本镜像），不存在则创建
+          if gh release view "${{ steps.build.outputs.FINAL_TAG }}" >/dev/null 2>&1; then
+              gh release upload "${{ steps.build.outputs.FINAL_TAG }}" \
+                "${{ steps.build.outputs.OVA_FILE_NAME }}" --clobber
+              echo "✅ Release 已存在，OVA 已追加：${{ steps.build.outputs.OVA_FILE_NAME }}"
+          else
+              gh release create "${{ steps.build.outputs.FINAL_TAG }}" \
+                "${{ steps.build.outputs.OVA_FILE_NAME }}" \
+                --title "Debian ${{ env.TARGET_VERSION }} OVA - ${{ steps.build.outputs.FINAL_TAG }}" \
+                --notes "$RELEASE_NOTES"
+              echo "✅ Release 创建完成：${{ steps.build.outputs.FINAL_TAG }}"
+          fi
 
       - name: 📊 构建摘要
         if: always()
