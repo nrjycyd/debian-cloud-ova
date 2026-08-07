@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       debian_version:
-        description: 'Debian 版本（默认：12/bookworm）'
+        description: 'Debian 版本（默认：13）'
         required: true
         default: '13'
         type: choice
@@ -38,7 +38,7 @@ on:
           - 'vmx-21 (ESXi 8.0 U1)'
           - 'vmx-22 (ESXi 8.0 U2)'
       guest_os:
-        description: 'OVF Guest OS 标识（默认：DGNU 11）'
+        description: 'OVF Guest OS 标识（默认：DGNU 10）'
         required: false
         default: 'DGNU 10, ESXi 6.7 U3~7.0'
         type: choice
