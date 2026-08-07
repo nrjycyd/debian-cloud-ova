@@ -230,7 +230,7 @@ jobs:
           
           gh release create "${{ steps.build.outputs.FINAL_TAG }}" \
             "${{ steps.build.outputs.OVA_FILE_NAME }}" \
-            --title "Debian ${{ env.TARGET_VERSION }} OVA - ${{ env.TARGET_VERSION }} - ${{ env.TARGET_GUEST_OS }} - ${{ steps.build.outputs.FINAL_TAG }}" \
+            --title "Debian ${{ env.TARGET_VERSION }} OVA - ${{ steps.build.outputs.FINAL_TAG }}" \
             --notes "$RELEASE_NOTES"
           
           echo "✅ Release 创建完成：${{ steps.build.outputs.FINAL_TAG }}"
