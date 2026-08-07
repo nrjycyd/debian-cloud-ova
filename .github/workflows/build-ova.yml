@@ -60,10 +60,10 @@ on:
         description: '用户密码（默认：123456）'
         required: false
         default: '123456'
-      release_tag:
-        description: 'Git 发布标签（如 v1.0.0）'
-        required: true
-        default: 'v1.0.0'
+      # release_tag:
+      #   description: 'Git 发布标签（如 v1.0.0）'
+      #   required: true
+      #   default: 'v1.0.0'
 
 jobs:
   build_ova:
@@ -78,7 +78,7 @@ jobs:
       TARGET_HOSTNAME: ${{ github.event.inputs.hostname }}
       TARGET_USERNAME: ${{ github.event.inputs.username }}
       TARGET_PASSWORD: ${{ github.event.inputs.password }}
-      RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+      # RELEASE_TAG: ${{ github.event.inputs.release_tag }}
       TARGET_GUEST_OS: ${{ github.event.inputs.guest_os }}
 
     steps:
@@ -184,7 +184,7 @@ jobs:
           echo "OVA_FILE_SIZE=$FILE_SIZE" >> $GITHUB_OUTPUT
           echo "BUILD_TIME=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
           echo "DEBIAN_BUILD=$DEBIAN_BUILD" >> $GITHUB_OUTPUT
-          echo "FINAL_TAG=${{ env.RELEASE_TAG }}-${DEBIAN_BUILD}" >> $GITHUB_OUTPUT
+          echo "FINAL_TAG=${DEBIAN_BUILD}" >> $GITHUB_OUTPUT
 
       - name: 🚀 创建 GitHub Release
         if: github.event_name == 'workflow_dispatch'
