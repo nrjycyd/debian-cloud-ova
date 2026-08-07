@@ -146,11 +146,11 @@ fi
 
 # ─── 固件显示名（仅影响最终 OVA 文件名，下载/内部引用仍用 FILE_NAME）───
 case "${VIRTUAL_SYSTEM_TYPE%% *}" in
-  vmx-14)                    ESXI_TAG="esxi67" ;;
-  vmx-17|vmx-18|vmx-19)      ESXI_TAG="esxi7" ;;
-  vmx-20|vmx-21)             ESXI_TAG="esxi8" ;;
-  vmx-22)                    ESXI_TAG="esxi9" ;;
-  *)                         ESXI_TAG="esxi$((${VIRTUAL_SYSTEM_TYPE#vmx-}/3+2))" ;;
+  vmx-14|vmx-15)             ESXI_TAG="esxi6.7" ;;
+  vmx-17|vmx-18|vmx-19)      ESXI_TAG="esxi7.0" ;;
+  vmx-20|vmx-21)             ESXI_TAG="esxi8.0" ;;
+  vmx-22)                    ESXI_TAG="esxi9.0" ;;
+  *)                         ESXI_TAG="esxi$((${VIRTUAL_SYSTEM_TYPE#vmx-}/3+2)).0" ;;
 esac
 FILE_ORIG_EXT="qcow2"
 FILE_DEST_EXT="vmdk"
