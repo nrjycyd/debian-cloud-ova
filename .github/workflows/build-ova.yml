@@ -120,9 +120,9 @@ jobs:
           echo "  内存: ${{ env.TARGET_MEMORY }}MB"
           echo "  磁盘: ${{ env.TARGET_DISK }}GB"
           echo "  ESXi 机型: ${{ env.TARGET_VMX }}"
+          echo "  Guest 版本: ${{ env.TARGET_GUEST_OS }}"
           echo "  主机名: ${{ env.TARGET_HOSTNAME }}"
           echo "  用户名: ${{ env.TARGET_USERNAME }}"
-          echo "  Guest OS: ${{ env.TARGET_GUEST_OS }}"
           
           # 传给脚本前解析机型部分（选项值带说明，取空格前为 vmx-XX）
           export VIRTUAL_SYSTEM_TYPE="${TARGET_VMX%% *}"
@@ -206,7 +206,8 @@ jobs:
           - vCPU：**${{ env.TARGET_VCPU }}**
           - 内存：**${{ env.TARGET_MEMORY }}MB**
           - 磁盘大小：**${{ env.TARGET_DISK }}GB**
-          - ESXi 机型版本：**${{ env.TARGET_VMX }}**
+          - ESXi 机型：**${{ env.TARGET_VMX }}**
+          - Guest 版本：**${{ env.TARGET_GUEST_OS }}**
           - 主机名：**${{ env.TARGET_HOSTNAME }}**
           - 默认用户：**${{ env.TARGET_USERNAME }}**
           - 文件大小：**${{ steps.build.outputs.OVA_FILE_SIZE }}**
@@ -229,7 +230,7 @@ jobs:
           
           gh release create "${{ steps.build.outputs.FINAL_TAG }}" \
             "${{ steps.build.outputs.OVA_FILE_NAME }}" \
-            --title "Debian ${{ env.TARGET_VERSION }} OVA - ${{ steps.build.outputs.FINAL_TAG }}" \
+            --title "Debian ${{ env.TARGET_VERSION }} OVA - ${{ env.TARGET_VERSION }} - ${{ env.TARGET_GUEST_OS }} - ${{ steps.build.outputs.FINAL_TAG }}" \
             --notes "$RELEASE_NOTES"
           
           echo "✅ Release 创建完成：${{ steps.build.outputs.FINAL_TAG }}"
@@ -246,6 +247,7 @@ jobs:
           echo "║ 内存: ${{ env.TARGET_MEMORY }}MB"
           echo "║ 磁盘: ${{ env.TARGET_DISK }}GB"
           echo "║ ESXi 机型: ${{ env.TARGET_VMX }}"
+          echo "║ Guest 版本: ${{ env.TARGET_GUEST_OS }}"
           echo "║ 主机名: ${{ env.TARGET_HOSTNAME }}"
           echo "║ 用户名: ${{ env.TARGET_USERNAME }}"
           echo "║ 标签: ${{ steps.build.outputs.FINAL_TAG }}"
