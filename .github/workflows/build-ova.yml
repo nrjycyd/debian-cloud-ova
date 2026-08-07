@@ -21,9 +21,9 @@ on:
         required: false
         default: '1024'
       disk_size:
-        description: '磁盘大小（GB，默认：10）'
+        description: '磁盘大小（GB，默认：4）'
         required: false
-        default: '10'
+        default: '4'
       esxi_hardware:
         description: 'ESXi 虚拟机硬件版本（最低 vmx-14，默认：vmx-14）'
         required: false
@@ -40,7 +40,7 @@ on:
       guest_os:
         description: 'OVF Guest OS 标识（默认：DGNU 11）'
         required: false
-        default: 'DGNU 11, ESXi 7.0 U3~8.0'
+        default: 'DGNU 10, ESXi 6.7 U3~7.0'
         type: choice
         options:
           - 'DGNU 9, ESXi ≤6.7'
