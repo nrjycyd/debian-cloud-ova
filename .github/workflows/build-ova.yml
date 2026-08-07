@@ -243,7 +243,6 @@ jobs:
           **Cloud-Init 支持：**
           - 自定义主机名配置
           - 创建带 sudo 权限的用户账户
-          - SSH 公钥注入（如提供）
           - 执行 user-data 脚本
           EOF
           )
