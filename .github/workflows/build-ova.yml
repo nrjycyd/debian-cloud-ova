@@ -151,7 +151,7 @@ jobs:
           fi
           
           # 传给脚本前解析版本部分（选项值带说明，取空格前为版本号/代号）
-          ./debian-ova-creator-20260807.sh \
+          ./debian-ova-creator.sh \
             -d "${TARGET_VERSION%% *}" \
             -c "${{ env.TARGET_VCPU }}" \
             -m "${{ env.TARGET_MEMORY }}" \
