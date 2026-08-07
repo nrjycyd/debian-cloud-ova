@@ -4,14 +4,46 @@ on:
   workflow_dispatch:
     inputs:
       debian_version:
-        description: 'Debian 版本（默认：13）'
+        description: 'Debian 系统版本（默认：13）'
         required: true
         default: '13'
         type: choice
         options:
+          - '10'
           - '11'
           - '12'
           - '13'
+      build_target:
+        description: 'ESXi 机型 + Guest OS 标识（DGNU）组合，仅列机型可识别的 DGNU；默认：ESXi 9.0+ + DGNU 13'
+        required: true
+        default: 'ESXi 9.0+ + DGNU 13 (vmx-22)'
+        type: choice
+        options:
+          - 'ESXi 6.7 + DGNU 9 (vmx-14)'
+          - 'ESXi 6.7 U3 + DGNU 10 (vmx-14)'
+          - 'ESXi 6.7 U2+ + DGNU 9 (vmx-15)'
+          - 'ESXi 6.7 U3 + DGNU 10 (vmx-15)'
+          - 'ESXi 7.0 + DGNU 9 (vmx-17)'
+          - 'ESXi 7.0 + DGNU 10 (vmx-17)'
+          - 'ESXi 7.0 U1 + DGNU 9 (vmx-18)'
+          - 'ESXi 7.0 U1 + DGNU 10 (vmx-18)'
+          - 'ESXi 7.0 U2/U3 + DGNU 9 (vmx-19)'
+          - 'ESXi 7.0 U2/U3 + DGNU 10 (vmx-19)'
+          - 'ESXi 7.0 U3 + DGNU 11 (vmx-19)'
+          - 'ESXi 8.0 / 8.0 U1 + DGNU 9 (vmx-20)'
+          - 'ESXi 8.0 / 8.0 U1 + DGNU 10 (vmx-20)'
+          - 'ESXi 8.0 / 8.0 U1 + DGNU 11 (vmx-20)'
+          - 'ESXi 8.0 / 8.0 U1 + DGNU 12 (vmx-20)'
+          - 'ESXi 8.0 U2/U3 + DGNU 9 (vmx-21)'
+          - 'ESXi 8.0 U2/U3 + DGNU 10 (vmx-21)'
+          - 'ESXi 8.0 U2/U3 + DGNU 11 (vmx-21)'
+          - 'ESXi 8.0 U2/U3 + DGNU 12 (vmx-21)'
+          - 'ESXi 8.0 U3 + DGNU 13 (vmx-21)'
+          - 'ESXi 9.0+ + DGNU 9 (vmx-22)'
+          - 'ESXi 9.0+ + DGNU 10 (vmx-22)'
+          - 'ESXi 9.0+ + DGNU 11 (vmx-22)'
+          - 'ESXi 9.0+ + DGNU 12 (vmx-22)'
+          - 'ESXi 9.0+ + DGNU 13 (vmx-22)'
       vcpu:
         description: 'vCPU 数量（默认：2）'
         required: false
@@ -24,30 +56,6 @@ on:
         description: '磁盘大小（GB，默认：4）'
         required: false
         default: '4'
-      esxi_hardware:
-        description: 'ESXi 虚拟机硬件版本（最低 vmx-14，默认：vmx-14）'
-        required: false
-        default: 'vmx-14 (ESXi 6.7)'
-        type: choice
-        options:
-          - 'vmx-14 (ESXi 6.7)'
-          - 'vmx-15 (ESXi 7.0)'
-          - 'vmx-17 (ESXi 7.0 U1+)'
-          - 'vmx-19 (ESXi 7.0 U2+)'
-          - 'vmx-20 (ESXi 8.0)'
-          - 'vmx-21 (ESXi 8.0 U1)'
-          - 'vmx-22 (ESXi 8.0 U2)'
-      guest_os:
-        description: 'OVF Guest OS 标识（默认：DGNU 10）'
-        required: false
-        default: 'DGNU 10, ESXi 6.7 U3~7.0'
-        type: choice
-        options:
-          - 'DGNU 9, ESXi ≤6.7'
-          - 'DGNU 10, ESXi 6.7 U3~7.0'
-          - 'DGNU 11, ESXi 7.0 U3~8.0'
-          - 'DGNU 12, ESXi 8.0~8.0 U2'
-          - 'DGNU 13, ESXi 8.0 U3+'
       hostname:
         description: '主机名（默认：debian-cloud）'
         required: false
@@ -73,15 +81,14 @@ jobs:
     
     env:
       TARGET_VERSION: ${{ github.event.inputs.debian_version }}
+      TARGET_BUILD: ${{ github.event.inputs.build_target }}
       TARGET_VCPU: ${{ github.event.inputs.vcpu }}
       TARGET_MEMORY: ${{ github.event.inputs.memory }}
       TARGET_DISK: ${{ github.event.inputs.disk_size }}
-      TARGET_VMX: ${{ github.event.inputs.esxi_hardware }}
       TARGET_HOSTNAME: ${{ github.event.inputs.hostname }}
       TARGET_USERNAME: ${{ github.event.inputs.username }}
       TARGET_PASSWORD: ${{ github.event.inputs.password }}
       # RELEASE_TAG: ${{ github.event.inputs.release_tag }}
-      TARGET_GUEST_OS: ${{ github.event.inputs.guest_os }}
 
     steps:
       - name: 📥 检出仓库
@@ -119,45 +126,53 @@ jobs:
               echo "❌ 错误：用户名不合法（小写字母开头，字母/数字/_/-，≤32 字符）"; exit 1
           fi
           
+          # Debian 版本独立输入（10-13），直接使用
+          TARGET_VERSION="${{ env.TARGET_VERSION }}"
+          if ! [[ "$TARGET_VERSION" =~ ^(10|11|12|13)$ ]]; then
+              echo "❌ 错误：不支持的 Debian 版本: $TARGET_VERSION"; exit 1
+          fi
+          
+          # 解析组合选项：'ESXi 9.0+ + DGNU 13 (vmx-22)' → vmx 机型 + DGNU 标识
+          VIRTUAL_SYSTEM_TYPE=$(echo "$TARGET_BUILD" | grep -oE 'vmx-[0-9]+')
+          DGNU_NUM=$(echo "$TARGET_BUILD" | grep -oE 'DGNU [0-9]+' | grep -oE '[0-9]+')
+          if [ -z "$VIRTUAL_SYSTEM_TYPE" ] || [ -z "$DGNU_NUM" ]; then
+              echo "❌ 错误：无法解析构建目标: $TARGET_BUILD"; exit 1
+          fi
+          export VIRTUAL_SYSTEM_TYPE
+          
+          # 组合校验：DGNU 不得超过该机型 ESXi 可识别的最高 osType（防手填非法 dispatch）
+          case "$VIRTUAL_SYSTEM_TYPE" in
+            vmx-14|vmx-15|vmx-17|vmx-18) MAX_OS=10 ;;
+            vmx-19)                       MAX_OS=11 ;;
+            vmx-20)                       MAX_OS=12 ;;
+            vmx-21|vmx-22)                MAX_OS=13 ;;
+          esac
+          if [ "$DGNU_NUM" -gt "$MAX_OS" ]; then
+              echo "❌ 错误：DGNU $DGNU_NUM 超过 $VIRTUAL_SYSTEM_TYPE 可识别上限 $MAX_OS"; exit 1
+          fi
+          
           echo "开始构建 OVA，参数如下："
-          echo "  Debian 版本: ${{ env.TARGET_VERSION }}"
+          echo "  Debian 版本: $TARGET_VERSION"
+          echo "  构建目标: $TARGET_BUILD"
           echo "  vCPU: ${{ env.TARGET_VCPU }}"
           echo "  内存: ${{ env.TARGET_MEMORY }}MB"
           echo "  磁盘: ${{ env.TARGET_DISK }}GB"
-          echo "  ESXi 机型: ${{ env.TARGET_VMX }}"
+          echo "  ESXi 机型: $VIRTUAL_SYSTEM_TYPE"
           echo "  主机名: ${{ env.TARGET_HOSTNAME }}"
           echo "  用户名: ${{ env.TARGET_USERNAME }}"
-          echo "  Guest OS: ${{ env.TARGET_GUEST_OS }}"
           
-          # 传给脚本前解析机型部分（选项值带说明，取空格前为 vmx-XX）
-          export VIRTUAL_SYSTEM_TYPE="${TARGET_VMX%% *}"
-          # 解析 Guest OS 标识（选项为友好文本，映射回 OVF ID/osType）
-          case "${TARGET_GUEST_OS%%,*}" in
-            "DGNU 9")  export OVF_OS_ID=96;  export OVF_OS_TYPE=debian9_64Guest ;;
-            "DGNU 10") export OVF_OS_ID=101; export OVF_OS_TYPE=debian10_64Guest ;;
-            "DGNU 11") export OVF_OS_ID=96;  export OVF_OS_TYPE=debian11_64Guest ;;
-            "DGNU 12") export OVF_OS_ID=96;  export OVF_OS_TYPE=debian12_64Guest ;;
-            "DGNU 13") export OVF_OS_ID=96;  export OVF_OS_TYPE=debian13_64Guest ;;
-            *) echo "❌ 错误：不支持的 Guest OS 选项: $TARGET_GUEST_OS"; exit 1 ;;
+          # Guest OS 标识：由组合中的 DGNU 直接映射（组合已保证 ≤ 机型可识别上限）
+          case "$DGNU_NUM" in
+            9)  export OVF_OS_ID=96;  export OVF_OS_TYPE=debian9_64Guest ;;
+            10) export OVF_OS_ID=101; export OVF_OS_TYPE=debian10_64Guest ;;
+            11) export OVF_OS_ID=96;  export OVF_OS_TYPE=debian11_64Guest ;;
+            12) export OVF_OS_ID=96;  export OVF_OS_TYPE=debian12_64Guest ;;
+            13) export OVF_OS_ID=96;  export OVF_OS_TYPE=debian13_64Guest ;;
           esac
+          echo "  Guest OS: $OVF_OS_TYPE (ovf:id=$OVF_OS_ID)"
           
-          # 联动校验：Guest OS 所需 ESXi 下限 vs 机型 vmx（防止 6.7 机型配 8.0 的 osType）
-          case "${TARGET_GUEST_OS%%,*}" in
-            "DGNU 9"|"DGNU 10") MIN_VMX="vmx-14" ;;
-            "DGNU 11") MIN_VMX="vmx-19" ;;
-            "DGNU 12") MIN_VMX="vmx-20" ;;
-            "DGNU 13") MIN_VMX="vmx-22" ;;
-          esac
-          VMX_NUM=$((10#${VIRTUAL_SYSTEM_TYPE#vmx-}))
-          MIN_NUM=$((10#${MIN_VMX#vmx-}))
-          if [ "$VMX_NUM" -lt "$MIN_NUM" ]; then
-              echo "❌ 错误：${{ env.TARGET_GUEST_OS }} 需要机型 $MIN_VMX 及以上，当前 $VIRTUAL_SYSTEM_TYPE 不满足"
-              exit 1
-          fi
-          
-          # 传给脚本前解析版本部分（选项值带说明，取空格前为版本号/代号）
           ./debian-ova-creator.sh \
-            -d "${TARGET_VERSION%% *}" \
+            -d "$TARGET_VERSION" \
             -c "${{ env.TARGET_VCPU }}" \
             -m "${{ env.TARGET_MEMORY }}" \
             -s "${{ env.TARGET_DISK }}" \
@@ -177,7 +192,8 @@ jobs:
           echo "✅ 构建完成：$FILE_NAME（$FILE_SIZE）"
           
           # 解析 Debian 官方 build 号（latest 目录页中最大 YYYYMMDD-NNNN），追加到发布标签
-          case "${TARGET_VERSION%% *}" in
+          case "$TARGET_VERSION" in
+            10) CODENAME="buster" ;;
             11) CODENAME="bullseye" ;;
             12) CODENAME="bookworm" ;;
             13) CODENAME="trixie" ;;
@@ -194,6 +210,8 @@ jobs:
           echo "BUILD_TIME=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
           echo "DEBIAN_BUILD=$DEBIAN_BUILD" >> $GITHUB_OUTPUT
           echo "FINAL_TAG=${DEBIAN_BUILD}" >> $GITHUB_OUTPUT
+          echo "TARGET_VERSION=$TARGET_VERSION" >> $GITHUB_OUTPUT
+          echo "VIRTUAL_SYSTEM_TYPE=$VIRTUAL_SYSTEM_TYPE" >> $GITHUB_OUTPUT
 
       - name: 🚀 创建 GitHub Release
         # 自定义 if 会替换默认 success() 检查，必须显式带 success()，否则构建失败后仍会执行
@@ -205,12 +223,12 @@ jobs:
           ## 🎉 Debian 云镜像 OVA
 
           **构建配置：**
-          - Debian 版本：**${{ env.TARGET_VERSION }}**
+          - Debian 版本：**${{ steps.build.outputs.TARGET_VERSION }}**
           - Debian Build 号：**${{ steps.build.outputs.DEBIAN_BUILD }}**
           - vCPU：**${{ env.TARGET_VCPU }}**
           - 内存：**${{ env.TARGET_MEMORY }}MB**
           - 磁盘大小：**${{ env.TARGET_DISK }}GB**
-          - ESXi 机型版本：**${{ env.TARGET_VMX }}**
+          - ESXi 机型版本：**${{ env.TARGET_BUILD }}**
           - 主机名：**${{ env.TARGET_HOSTNAME }}**
           - 默认用户：**${{ env.TARGET_USERNAME }}**
           - 文件大小：**${{ steps.build.outputs.OVA_FILE_SIZE }}**
@@ -239,7 +257,7 @@ jobs:
           else
               gh release create "${{ steps.build.outputs.FINAL_TAG }}" \
                 "${{ steps.build.outputs.OVA_FILE_NAME }}" \
-                --title "Debian ${{ env.TARGET_VERSION }} OVA - ${{ steps.build.outputs.FINAL_TAG }}" \
+                --title "Debian ${{ steps.build.outputs.TARGET_VERSION }} OVA - ${{ steps.build.outputs.FINAL_TAG }}" \
                 --notes "$RELEASE_NOTES"
               echo "✅ Release 创建完成：${{ steps.build.outputs.FINAL_TAG }}"
           fi
@@ -251,11 +269,11 @@ jobs:
           echo "╔════════════════════════════════════════╗"
           echo "║      Debian OVA 构建完成           ║"
           echo "╠════════════════════════════════════════╣"
-          echo "║ 版本: ${{ env.TARGET_VERSION }}"
+          echo "║ 版本: ${{ steps.build.outputs.TARGET_VERSION }}"
           echo "║ vCPU: ${{ env.TARGET_VCPU }}"
           echo "║ 内存: ${{ env.TARGET_MEMORY }}MB"
           echo "║ 磁盘: ${{ env.TARGET_DISK }}GB"
-          echo "║ ESXi 机型: ${{ env.TARGET_VMX }}"
+          echo "║ ESXi 机型: ${{ env.TARGET_BUILD }}"
           echo "║ 主机名: ${{ env.TARGET_HOSTNAME }}"
           echo "║ 用户名: ${{ env.TARGET_USERNAME }}"
           echo "║ 标签: ${{ steps.build.outputs.FINAL_TAG }}"
