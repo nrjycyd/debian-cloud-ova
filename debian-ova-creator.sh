@@ -172,7 +172,10 @@ case "${OVF_OS_TYPE}" in
   debian13_64Guest) GUEST_TAG="dgnu13" ;;
   *)                GUEST_TAG="dgnu$(echo "${OVF_OS_TYPE}" | grep -oE '[0-9]+' | head -1)" ;;
 esac
-OUTPUT_NAME="debian${DEBIAN_VERSION}-generic-cloud-${ESXI_TAG}-${GUEST_TAG}-${DEBIAN_ARCH}"
+# vmx 号（去掉前缀与选项说明），文件名精确到硬件版本 + Guest 标识
+VMX_NUM="${VIRTUAL_SYSTEM_TYPE%% *}"
+VMX_NUM="${VMX_NUM#vmx-}"
+OUTPUT_NAME="debian${DEBIAN_VERSION}-generic-cloud-${ESXI_TAG}-vmx${VMX_NUM}-${GUEST_TAG}-${DEBIAN_ARCH}"
 
 CURRENT_DATE=$(date +%Y%m%d)
 disk_size_bytes=$((disk_size_gb * 1073741824))
