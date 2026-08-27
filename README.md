@@ -13,7 +13,7 @@
 
 ## ✨ 功能特性
 
-- **官方源构建**：基于官方 `genericcloud` 镜像构建，确保纯净安全。
+- **官方源构建**：基于 `Debian Official Cloud Images` 构建，确保纯净安全。
 - **多版本支持**：Debian 10 (Buster) ~ 13 (Trixie)，以及版本对应的 Guest OS 标识（DGNU）。
 - **机型精确匹配**：构建时选择 ESXi 机型（vmx-14 ~ vmx-22），自动设置对应的 OVF 硬件版本与 Guest OS 类型。
 - **硬件定制**：构建时可自定义 vCPU、内存和磁盘大小（磁盘最小 2GB）。
