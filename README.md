@@ -1,6 +1,6 @@
 # 🚀 Debian Cloud OVA Builder
 
-基于 **Debian 官方云镜像**（`genericcloud`，源自 [cloud.debian.org](https://cloud.debian.org/images/cloud/)），通过封装 Cloud-Init 配置，自动构建可直接导入 **VMware ESXi / Workstation** 及 **VirtualBox** 的 OVA 虚拟机模板。
+基于 **Debian 官方云镜像**（源自 [cloud.debian.org](https://cloud.debian.org/images/cloud/)），通过封装 Cloud-Init 配置，自动构建可直接导入 **VMware ESXi / Workstation** 及 **VirtualBox** 的 OVA 虚拟机模板。
 
 > [!CAUTION]
 > **⚠️ 安全警告：仅限内部测试环境使用**
