@@ -1,4 +1,4 @@
-name: 🚀 构建并发布 Debian OVA
+name: 构建并发布 Debian OVA
 
 on:
   workflow_dispatch:
@@ -78,7 +78,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write   # 创建 Release 需要写 contents（新仓库默认只读 token 会 403）
-    
+
     env:
       TARGET_VERSION: ${{ github.event.inputs.debian_version }}
       TARGET_BUILD: ${{ github.event.inputs.build_target }}
@@ -91,55 +91,54 @@ jobs:
       # RELEASE_TAG: ${{ github.event.inputs.release_tag }}
 
     steps:
-      - name: 📥 检出仓库
+      - name: 检出仓库
         uses: actions/checkout@v7
-        
-      - name: 📦 安装依赖
+
+      - name: 安装依赖
         run: |
-          echo "正在安装依赖..."
+          echo "[INFO] 正在安装依赖..."
           sudo apt update -qq
           sudo apt install -y wget qemu-utils cloud-image-utils
-          echo "✅ 依赖安装完成"
+          echo "[INFO] 依赖安装完成"
 
-      - name: 🔨 构建 OVA
+      - name: 构建 OVA
         id: build
         run: |
           chmod +x ./debian-ova-creator.sh
-          
+
           # 参数校验（上限防止生成非法 OVF，hostname/密码防 cloud-init 配置破坏）
-          if ! [[ "${{ env.TARGET_VCPU }}" =~ ^[0-9]+$ ]] || [ "${{ env.TARGET_VCPU }}" -lt 1 ] || [ "${{ env.TARGET_VCPU }}" -gt 64 ]; then
-              echo "❌ 错误：vCPU 必须在 1-64 之间"; exit 1
+          if ! [[ "${TARGET_VCPU}" =~ ^[0-9]+$ ]] || [ "${TARGET_VCPU}" -lt 1 ] || [ "${TARGET_VCPU}" -gt 64 ]; then
+              echo "[ERROR] vCPU 必须在 1-64 之间"; exit 1
           fi
-          if ! [[ "${{ env.TARGET_MEMORY }}" =~ ^[0-9]+$ ]] || [ "${{ env.TARGET_MEMORY }}" -lt 256 ] || [ "${{ env.TARGET_MEMORY }}" -gt 262144 ]; then
-              echo "❌ 错误：内存必须在 256-262144 MB 之间"; exit 1
+          if ! [[ "${TARGET_MEMORY}" =~ ^[0-9]+$ ]] || [ "${TARGET_MEMORY}" -lt 256 ] || [ "${TARGET_MEMORY}" -gt 262144 ]; then
+              echo "[ERROR] 内存必须在 256-262144 MB 之间"; exit 1
           fi
-          if ! [[ "${{ env.TARGET_DISK }}" =~ ^[0-9]+$ ]] || [ "${{ env.TARGET_DISK }}" -lt 2 ] || [ "${{ env.TARGET_DISK }}" -gt 2048 ]; then
-              echo "❌ 错误：磁盘必须在 2-2048 GB 之间"; exit 1
+          if ! [[ "${TARGET_DISK}" =~ ^[0-9]+$ ]] || [ "${TARGET_DISK}" -lt 2 ] || [ "${TARGET_DISK}" -gt 2048 ]; then
+              echo "[ERROR] 磁盘必须在 2-2048 GB 之间"; exit 1
           fi
-          if ! [[ "${{ env.TARGET_HOSTNAME }}" =~ ^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$ ]]; then
-              echo "❌ 错误：主机名不合法（字母/数字/连字符，≤63 字符）"; exit 1
+          if ! [[ "${TARGET_HOSTNAME}" =~ ^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$ ]]; then
+              echo "[ERROR] 主机名不合法（字母/数字/连字符，≤63 字符）"; exit 1
           fi
-          if ! [[ "${{ env.TARGET_PASSWORD }}" =~ ^[A-Za-z0-9@#%+=.,_-]+$ ]]; then
-              echo "❌ 错误：密码含非法字符（仅允许字母/数字/@#%+=.,_-）"; exit 1
+          if ! [[ "${TARGET_PASSWORD}" =~ ^[A-Za-z0-9@#%+=.,_-]+$ ]]; then
+              echo "[ERROR] 密码含非法字符（仅允许字母/数字/@#%+=.,_-）"; exit 1
           fi
-          if ! [[ "${{ env.TARGET_USERNAME }}" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
-              echo "❌ 错误：用户名不合法（小写字母开头，字母/数字/_/-，≤32 字符）"; exit 1
+          if ! [[ "${TARGET_USERNAME}" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
+              echo "[ERROR] 用户名不合法（小写字母开头，字母/数字/_/-，≤32 字符）"; exit 1
           fi
-          
+
           # Debian 版本独立输入（10-13），直接使用
-          TARGET_VERSION="${{ env.TARGET_VERSION }}"
           if ! [[ "$TARGET_VERSION" =~ ^(10|11|12|13)$ ]]; then
-              echo "❌ 错误：不支持的 Debian 版本: $TARGET_VERSION"; exit 1
+              echo "[ERROR] 不支持的 Debian 版本: $TARGET_VERSION"; exit 1
           fi
-          
+
           # 解析组合选项：'ESXi 9.0+ + DGNU 13 (vmx-22)' → vmx 机型 + DGNU 标识
           VIRTUAL_SYSTEM_TYPE=$(echo "$TARGET_BUILD" | grep -oE 'vmx-[0-9]+')
           DGNU_NUM=$(echo "$TARGET_BUILD" | grep -oE 'DGNU [0-9]+' | grep -oE '[0-9]+')
           if [ -z "$VIRTUAL_SYSTEM_TYPE" ] || [ -z "$DGNU_NUM" ]; then
-              echo "❌ 错误：无法解析构建目标: $TARGET_BUILD"; exit 1
+              echo "[ERROR] 无法解析构建目标: $TARGET_BUILD"; exit 1
           fi
           export VIRTUAL_SYSTEM_TYPE
-          
+
           # 组合校验：DGNU 不得超过该机型 ESXi 可识别的最高 osType（防手填非法 dispatch）
           case "$VIRTUAL_SYSTEM_TYPE" in
             vmx-14|vmx-15|vmx-17|vmx-18) MAX_OS=10 ;;
@@ -148,19 +147,19 @@ jobs:
             vmx-21|vmx-22)                MAX_OS=13 ;;
           esac
           if [ "$DGNU_NUM" -gt "$MAX_OS" ]; then
-              echo "❌ 错误：DGNU $DGNU_NUM 超过 $VIRTUAL_SYSTEM_TYPE 可识别上限 $MAX_OS"; exit 1
+              echo "[ERROR] DGNU $DGNU_NUM 超过 $VIRTUAL_SYSTEM_TYPE 可识别上限 $MAX_OS"; exit 1
           fi
-          
-          echo "开始构建 OVA，参数如下："
-          echo "  Debian 版本: $TARGET_VERSION"
-          echo "  构建目标: $TARGET_BUILD"
-          echo "  vCPU: ${{ env.TARGET_VCPU }}"
-          echo "  内存: ${{ env.TARGET_MEMORY }}MB"
-          echo "  磁盘: ${{ env.TARGET_DISK }}GB"
-          echo "  ESXi 机型: $VIRTUAL_SYSTEM_TYPE"
-          echo "  主机名: ${{ env.TARGET_HOSTNAME }}"
-          echo "  用户名: ${{ env.TARGET_USERNAME }}"
-          
+
+          echo "[INFO] 开始构建 OVA，参数如下："
+          echo "[INFO] Debian 版本: $TARGET_VERSION"
+          echo "[INFO] 构建目标: $TARGET_BUILD"
+          echo "[INFO] vCPU: ${TARGET_VCPU}"
+          echo "[INFO] 内存: ${TARGET_MEMORY}MB"
+          echo "[INFO] 磁盘: ${TARGET_DISK}GB"
+          echo "[INFO] ESXi 机型: $VIRTUAL_SYSTEM_TYPE"
+          echo "[INFO] 主机名: ${TARGET_HOSTNAME}"
+          echo "[INFO] 用户名: ${TARGET_USERNAME}"
+
           # Guest OS 标识：由组合中的 DGNU 直接映射（组合已保证 ≤ 机型可识别上限）
           case "$DGNU_NUM" in
             9)  export OVF_OS_ID=96;  export OVF_OS_TYPE=debian9_64Guest ;;
@@ -169,28 +168,28 @@ jobs:
             12) export OVF_OS_ID=96;  export OVF_OS_TYPE=debian12_64Guest ;;
             13) export OVF_OS_ID=96;  export OVF_OS_TYPE=debian13_64Guest ;;
           esac
-          echo "  Guest OS: $OVF_OS_TYPE (ovf:id=$OVF_OS_ID)"
-          
+          echo "[INFO] Guest OS: $OVF_OS_TYPE (ovf:id=$OVF_OS_ID)"
+
           ./debian-ova-creator.sh \
             -d "$TARGET_VERSION" \
-            -c "${{ env.TARGET_VCPU }}" \
-            -m "${{ env.TARGET_MEMORY }}" \
-            -s "${{ env.TARGET_DISK }}" \
-            -H "${{ env.TARGET_HOSTNAME }}" \
-            -u "${{ env.TARGET_USERNAME }}" \
-            -p "${{ env.TARGET_PASSWORD }}"
-          
+            -c "${TARGET_VCPU}" \
+            -m "${TARGET_MEMORY}" \
+            -s "${TARGET_DISK}" \
+            -H "${TARGET_HOSTNAME}" \
+            -u "${TARGET_USERNAME}" \
+            -p "${TARGET_PASSWORD}"
+
           # 查找本次构建生成的 OVA（只匹配新命名格式，不会误选之前的旧版本文件）
           FILE_NAME=$(ls debian*-generic-cloud-*.ova 2>/dev/null | head -1)
           if [ -z "$FILE_NAME" ]; then
-              echo "❌ 错误：未找到 OVA 文件"
+              echo "[ERROR] 未找到 OVA 文件"
               ls -la
               exit 1
           fi
-          
+
           FILE_SIZE=$(du -h "$FILE_NAME" | cut -f1)
-          echo "✅ 构建完成：$FILE_NAME（$FILE_SIZE）"
-          
+          echo "[INFO] 构建完成：$FILE_NAME（$FILE_SIZE）"
+
           # 解析 Debian 官方 build 号（latest 目录页中最大 YYYYMMDD-NNNN），追加到发布标签
           case "$TARGET_VERSION" in
             10) CODENAME="buster" ;;
@@ -200,90 +199,100 @@ jobs:
           esac
           DEBIAN_BUILD=$(curl -s --max-time 30 "https://cloud.debian.org/images/cloud/${CODENAME}/" | grep -oE '[0-9]{8}-[0-9]+/' | sort -u | tail -1 | tr -d '/') || true
           if [ -z "$DEBIAN_BUILD" ]; then
-              echo "⚠️ 未能解析 Debian build 号（网络或目录页结构变化），回退为日期"
+              echo "[WARN] 未能解析 Debian build 号（网络或目录页结构变化），回退为日期"
               DEBIAN_BUILD=$(date -u +%Y%m%d)
           fi
-          echo "✅ Debian 官方 build 号：$DEBIAN_BUILD"
-          
-          echo "OVA_FILE_NAME=$FILE_NAME" >> $GITHUB_OUTPUT
-          echo "OVA_FILE_SIZE=$FILE_SIZE" >> $GITHUB_OUTPUT
-          echo "BUILD_TIME=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
-          echo "DEBIAN_BUILD=$DEBIAN_BUILD" >> $GITHUB_OUTPUT
-          echo "FINAL_TAG=${DEBIAN_BUILD}" >> $GITHUB_OUTPUT
-          echo "TARGET_VERSION=$TARGET_VERSION" >> $GITHUB_OUTPUT
-          echo "VIRTUAL_SYSTEM_TYPE=$VIRTUAL_SYSTEM_TYPE" >> $GITHUB_OUTPUT
+          echo "[INFO] Debian 官方 build 号：$DEBIAN_BUILD"
 
-      - name: 🚀 创建 GitHub Release
+          echo "OVA_FILE_NAME=$FILE_NAME" >> "$GITHUB_OUTPUT"
+          echo "OVA_FILE_SIZE=$FILE_SIZE" >> "$GITHUB_OUTPUT"
+          echo "BUILD_TIME=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> "$GITHUB_OUTPUT"
+          echo "DEBIAN_BUILD=$DEBIAN_BUILD" >> "$GITHUB_OUTPUT"
+          echo "FINAL_TAG=${DEBIAN_BUILD}" >> "$GITHUB_OUTPUT"
+          echo "TARGET_VERSION=$TARGET_VERSION" >> "$GITHUB_OUTPUT"
+          echo "VIRTUAL_SYSTEM_TYPE=$VIRTUAL_SYSTEM_TYPE" >> "$GITHUB_OUTPUT"
+
+      - name: 创建 GitHub Release
         # 自定义 if 会替换默认 success() 检查，必须显式带 success()，否则构建失败后仍会执行
         if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUILD_VERSION: ${{ steps.build.outputs.TARGET_VERSION }}
+          DEBIAN_BUILD: ${{ steps.build.outputs.DEBIAN_BUILD }}
+          OVA_FILE_SIZE: ${{ steps.build.outputs.OVA_FILE_SIZE }}
+          BUILD_TIME: ${{ steps.build.outputs.BUILD_TIME }}
+          FINAL_TAG: ${{ steps.build.outputs.FINAL_TAG }}
+          OVA_FILE_NAME: ${{ steps.build.outputs.OVA_FILE_NAME }}
         run: |
-          RELEASE_NOTES=$(cat <<'EOF'
-          ## 🎉 Debian 云镜像 OVA
+          RELEASE_NOTES_FILE="$RUNNER_TEMP/release-notes.md"
+          cat > "$RELEASE_NOTES_FILE" <<EOF
+          ## Debian 云镜像 OVA
 
           **构建配置：**
-          - Debian 版本：**${{ steps.build.outputs.TARGET_VERSION }}**
-          - Debian Build 号：**${{ steps.build.outputs.DEBIAN_BUILD }}**
-          - vCPU：**${{ env.TARGET_VCPU }}**
-          - 内存：**${{ env.TARGET_MEMORY }}MB**
-          - 磁盘大小：**${{ env.TARGET_DISK }}GB**
-          - 主机名：**${{ env.TARGET_HOSTNAME }}**
-          - 默认用户：**${{ env.TARGET_USERNAME }}**
-          - 文件大小：**${{ steps.build.outputs.OVA_FILE_SIZE }}**
-          - 构建时间：**${{ steps.build.outputs.BUILD_TIME }}**
+          - Debian 版本：**${BUILD_VERSION}**
+          - Debian Build 号：**${DEBIAN_BUILD}**
+          - vCPU：**${TARGET_VCPU}**
+          - 内存：**${TARGET_MEMORY}MB**
+          - 磁盘大小：**${TARGET_DISK}GB**
+          - 主机名：**${TARGET_HOSTNAME}**
+          - 默认用户：**${TARGET_USERNAME}**
+          - 文件大小：**${OVA_FILE_SIZE}**
+          - 构建时间：**${BUILD_TIME}**
 
           **快速开始：**
           1. 从 Release 资产中下载 OVA 文件
           2. 导入 VMware 或兼容的虚拟化平台
           3. 开机并使用以下凭据登录：
-             - 用户名：`${{ env.TARGET_USERNAME }}`
-             - 密码：`${{ env.TARGET_PASSWORD }}`
+             - 用户名：\`${TARGET_USERNAME}\`
+             - 密码：\`${TARGET_PASSWORD}\`
 
           **Cloud-Init 支持：**
           - 自定义主机名配置
           - 创建带 sudo 权限的用户账户
           - 执行 user-data 脚本
           EOF
-          )
 
           # 同 tag 复用：Release 已存在则追加 OVA 资产（保留之前编译的其他 ESXi 版本镜像），不存在则创建
-          if gh release view "${{ steps.build.outputs.FINAL_TAG }}" >/dev/null 2>&1; then
-              gh release upload "${{ steps.build.outputs.FINAL_TAG }}" \
-                "${{ steps.build.outputs.OVA_FILE_NAME }}" --clobber
-              echo "✅ Release 已存在，OVA 已追加：${{ steps.build.outputs.OVA_FILE_NAME }}"
+          if gh release view "${FINAL_TAG}" >/dev/null 2>&1; then
+              gh release upload "${FINAL_TAG}" \
+                "${OVA_FILE_NAME}" --clobber
+              echo "[INFO] Release 已存在，OVA 已追加：${OVA_FILE_NAME}"
           else
-              gh release create "${{ steps.build.outputs.FINAL_TAG }}" \
-                "${{ steps.build.outputs.OVA_FILE_NAME }}" \
-                --title "Debian ${{ steps.build.outputs.TARGET_VERSION }} OVA - ${{ steps.build.outputs.FINAL_TAG }}" \
-                --notes "$RELEASE_NOTES"
-              echo "✅ Release 创建完成：${{ steps.build.outputs.FINAL_TAG }}"
+              gh release create "${FINAL_TAG}" \
+                "${OVA_FILE_NAME}" \
+                --title "Debian ${BUILD_VERSION} OVA - ${FINAL_TAG}" \
+                --notes-file "$RELEASE_NOTES_FILE"
+              echo "[INFO] Release 创建完成：${FINAL_TAG}"
           fi
 
-      - name: 📊 构建摘要
+      - name: 构建摘要
         if: always()
+        env:
+          BUILD_VERSION: ${{ steps.build.outputs.TARGET_VERSION }}
+          DEBIAN_BUILD: ${{ steps.build.outputs.DEBIAN_BUILD }}
+          OVA_FILE_SIZE: ${{ steps.build.outputs.OVA_FILE_SIZE }}
+          BUILD_TIME: ${{ steps.build.outputs.BUILD_TIME }}
+          FINAL_TAG: ${{ steps.build.outputs.FINAL_TAG }}
+          OVA_FILE_NAME: ${{ steps.build.outputs.OVA_FILE_NAME }}
         run: |
           echo ""
-          echo "╔════════════════════════════════════════╗"
-          echo "║      Debian OVA 构建完成           ║"
-          echo "╠════════════════════════════════════════╣"
-          echo "║ 版本: ${{ steps.build.outputs.TARGET_VERSION }}"
-          echo "║ vCPU: ${{ env.TARGET_VCPU }}"
-          echo "║ 内存: ${{ env.TARGET_MEMORY }}MB"
-          echo "║ 磁盘: ${{ env.TARGET_DISK }}GB"
-          echo "║ ESXi 机型: ${{ env.TARGET_BUILD }}"
-          echo "║ 主机名: ${{ env.TARGET_HOSTNAME }}"
-          echo "║ 用户名: ${{ env.TARGET_USERNAME }}"
-          echo "║ 标签: ${{ steps.build.outputs.FINAL_TAG }}"
-          if [ -n "${{ steps.build.outputs.OVA_FILE_NAME }}" ]; then
-            echo "║ 文件: ${{ steps.build.outputs.OVA_FILE_NAME }}"
-            echo "║ 大小: ${{ steps.build.outputs.OVA_FILE_SIZE }}"
+          echo "[INFO] Debian OVA 构建完成"
+          echo "[INFO] 版本: ${BUILD_VERSION}"
+          echo "[INFO] vCPU: ${TARGET_VCPU}"
+          echo "[INFO] 内存: ${TARGET_MEMORY}MB"
+          echo "[INFO] 磁盘: ${TARGET_DISK}GB"
+          echo "[INFO] ESXi 机型: ${TARGET_BUILD}"
+          echo "[INFO] 主机名: ${TARGET_HOSTNAME}"
+          echo "[INFO] 用户名: ${TARGET_USERNAME}"
+          echo "[INFO] 标签: ${FINAL_TAG}"
+          if [ -n "${OVA_FILE_NAME}" ]; then
+            echo "[INFO] 文件: ${OVA_FILE_NAME}"
+            echo "[INFO] 大小: ${OVA_FILE_SIZE}"
           fi
-          echo "╚════════════════════════════════════════╝"
           echo ""
 
-      - name: 🧹 清理
+      - name: 清理
         if: always()
         run: |
           rm -f *.qcow2 *.vmdk *.ovf *.mf *.ova cidata.iso 2>/dev/null || true
-          echo "✅ 清理完成"
+          echo "[INFO] 清理完成"
