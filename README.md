@@ -132,7 +132,7 @@ Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 
 > 若你只想快速替换，也可以用 `sed` 把文件里的官方域名直接改成清华域名（不会引入重复源）：
 > ```bash
-> sudo sed -i 's|https://deb.debian.org/debian|https://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources
+> sudo sed -i '/URIs:.*debian\.org/s|https://[^[:space:]]*debian\.org/debian|https://mirrors.tuna.tsinghua.edu.cn/debian|g; /URIs:.*debian-security/s|https://[^[:space:]]*security\.debian\.org/debian-security|https://mirrors.tuna.tsinghua.edu.cn/debian-security|g' /etc/apt/sources.list.d/debian.sources
 > ```
 
 更新源：
