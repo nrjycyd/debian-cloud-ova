@@ -24,6 +24,7 @@ Hardware Options:
   -c <vcpu>            Number of vCPUs (default: 2)
   -m <memory>          Memory in MB (default: 1024)
   -s <disk_gb>         Disk size in GB (default: 10)
+                       Uses the source image size if the requested size is smaller
 
 Account Options:
   -H <hostname>        Hostname (default: debian-cloud)
@@ -281,9 +282,11 @@ CURRENT_BYTES=$(get_virtual_size "${FILE_NAME}.${FILE_ORIG_EXT}") || exit 1
 TARGET_BYTES=$((disk_size_gb * 1073741824))
 if [ "$CURRENT_BYTES" -gt "$TARGET_BYTES" ]; then
     CURRENT_GIB=$(awk -v bytes="$CURRENT_BYTES" 'BEGIN { printf "%.2f", bytes / 1073741824 }')
-    echo "[ERROR] 目标磁盘容量 ${disk_size_gb} GiB 小于源镜像容量 ${CURRENT_GIB} GiB（${CURRENT_BYTES} 字节），请增大磁盘容量。" >&2
-    exit 1
+    echo "[WARN] 请求磁盘容量 ${disk_size_gb} GiB 小于源镜像容量 ${CURRENT_GIB} GiB，自动采用源镜像容量继续构建。"
+    TARGET_BYTES=$CURRENT_BYTES
 fi
+disk_size_bytes=$TARGET_BYTES
+ACTUAL_DISK_GIB=$(awk -v bytes="$TARGET_BYTES" 'BEGIN { printf "%.2f", bytes / 1073741824 }')
 if [ "$CURRENT_BYTES" -lt "$TARGET_BYTES" ]; then
     qemu-img resize "${FILE_NAME}.${FILE_ORIG_EXT}" "${disk_size_gb}G"
     echo "[INFO] 磁盘已扩容到 ${disk_size_gb}G（开机后 cloud-init growpart 自动扩展根分区）"
@@ -307,6 +310,11 @@ else
     echo "[INFO] VMDK file already exists"
 fi
 
+FINAL_VMDK_BYTES=$(get_virtual_size "${FILE_NAME}.${FILE_DEST_EXT}") || exit 1
+if [ "$FINAL_VMDK_BYTES" != "$TARGET_BYTES" ]; then
+    echo "[ERROR] VMDK 实际容量与目标容量不一致，停止打包。" >&2
+    exit 1
+fi
 FILE_DEST_SIZE=$(wc -c "${FILE_NAME}.${FILE_DEST_EXT}" | cut -d " " -f1)
 
 # --- 区域 2: OVF 配置修改 (禁止自动启动, 添加 ISO 引用) ---
@@ -445,9 +453,14 @@ echo "[INFO] File Size: ${OVA_SIZE}"
 echo "[INFO] Debian Version: ${DEBIAN_VERSION}"
 echo "[INFO] vCPU: ${vcpu}"
 echo "[INFO] Memory: ${memory}MB"
-echo "[INFO] Disk: ${disk_size_gb}GB"
+echo "[INFO] Requested Disk: ${disk_size_gb} GiB"
+echo "[INFO] Actual Disk: ${ACTUAL_DISK_GIB} GiB"
 echo "[INFO] Hostname: ${hostname}"
 echo "[INFO] Default User: ${username}"
 echo "[INFO] Config Method: NoCloud/ConfigDrive (ISO)"
 echo "[INFO] Auto Start: Disabled"
 echo ""
+
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+    printf 'ACTUAL_DISK_GIB=%s\nACTUAL_DISK_BYTES=%s\n' "$ACTUAL_DISK_GIB" "$TARGET_BYTES" >> "$GITHUB_OUTPUT"
+fi

@@ -53,7 +53,7 @@ on:
         required: false
         default: '1024'
       disk_size:
-        description: '磁盘大小（GB，默认：4）'
+        description: '磁盘大小（GiB，默认：4；小于源镜像容量时自动采用源镜像容量）'
         required: false
         default: '4'
       hostname:
@@ -217,6 +217,7 @@ jobs:
         if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTUAL_DISK_GIB: ${{ steps.build.outputs.ACTUAL_DISK_GIB }}
           BUILD_VERSION: ${{ steps.build.outputs.TARGET_VERSION }}
           DEBIAN_BUILD: ${{ steps.build.outputs.DEBIAN_BUILD }}
           OVA_FILE_SIZE: ${{ steps.build.outputs.OVA_FILE_SIZE }}
@@ -233,7 +234,8 @@ jobs:
           - Debian Build 号：**${DEBIAN_BUILD}**
           - vCPU：**${TARGET_VCPU}**
           - 内存：**${TARGET_MEMORY}MB**
-          - 磁盘大小：**${TARGET_DISK}GB**
+          - 请求磁盘容量：**${TARGET_DISK} GiB**
+          - 实际磁盘容量：**${ACTUAL_DISK_GIB} GiB**
           - 主机名：**${TARGET_HOSTNAME}**
           - 默认用户：**${TARGET_USERNAME}**
           - 文件大小：**${OVA_FILE_SIZE}**
@@ -269,6 +271,7 @@ jobs:
         if: always()
         env:
           BUILD_STATUS: ${{ job.status }}
+          ACTUAL_DISK_GIB: ${{ steps.build.outputs.ACTUAL_DISK_GIB }}
           BUILD_VERSION: ${{ steps.build.outputs.TARGET_VERSION }}
           DEBIAN_BUILD: ${{ steps.build.outputs.DEBIAN_BUILD }}
           OVA_FILE_SIZE: ${{ steps.build.outputs.OVA_FILE_SIZE }}
@@ -281,7 +284,8 @@ jobs:
           echo "[INFO] 版本: ${BUILD_VERSION}"
           echo "[INFO] vCPU: ${TARGET_VCPU}"
           echo "[INFO] 内存: ${TARGET_MEMORY}MB"
-          echo "[INFO] 磁盘: ${TARGET_DISK}GB"
+          echo "[INFO] 请求磁盘容量: ${TARGET_DISK} GiB"
+          echo "[INFO] 实际磁盘容量: ${ACTUAL_DISK_GIB:-未生成} GiB"
           echo "[INFO] ESXi 机型: ${TARGET_BUILD}"
           echo "[INFO] 主机名: ${TARGET_HOSTNAME}"
           echo "[INFO] 用户名: ${TARGET_USERNAME}"
@@ -291,6 +295,20 @@ jobs:
             echo "[INFO] 大小: ${OVA_FILE_SIZE}"
           fi
           echo ""
+
+          if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+            {
+              printf '## Debian OVA 构建结果\n\n'
+              printf -- '- 状态：%s\n' "$BUILD_STATUS"
+              printf -- '- 请求磁盘容量：%s GiB\n' "$TARGET_DISK"
+              if [[ -n "$ACTUAL_DISK_GIB" ]]; then
+                printf -- '- 实际磁盘容量：%s GiB\n' "$ACTUAL_DISK_GIB"
+                printf '\n实际容量按请求容量与源镜像容量中的较大值构建。\n'
+              else
+                printf -- '- 实际磁盘容量：未生成\n'
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: 清理
         if: always()
