@@ -39,6 +39,27 @@ Examples:
 EOF
 }
 
+# 只读取顶层 virtual-size，避免匹配嵌套镜像信息中的同名字段。
+get_virtual_size() {
+    local image_info
+    if ! image_info=$(qemu-img info --output=json "$1"); then
+        echo "[ERROR] 无法读取镜像信息：$1" >&2
+        return 1
+    fi
+    printf '%s\n' "$image_info" | python3 -c '
+import json
+import sys
+
+try:
+    size = json.load(sys.stdin)["virtual-size"]
+    if type(size) is not int or not 0 < size <= 9223372036854775807:
+        raise ValueError("virtual-size 必须为有效的正整数字节数")
+except (ValueError, KeyError, TypeError) as error:
+    sys.exit("[ERROR] 镜像容量 JSON 解析失败：" + str(error))
+print(size)
+'
+}
+
 # Parse command line arguments
 while getopts ":d:c:m:s:H:u:p:h" opt; do
     case "$opt" in
@@ -256,7 +277,7 @@ else
 fi
 
 # 扩容磁盘到指定大小（仅当小于目标时），保证 vmdk 虚拟大小与 OVF capacity 一致
-CURRENT_BYTES=$(qemu-img info --output=json "${FILE_NAME}.${FILE_ORIG_EXT}" | grep -oE '"virtual-size": [0-9]+' | grep -oE '[0-9]+')
+CURRENT_BYTES=$(get_virtual_size "${FILE_NAME}.${FILE_ORIG_EXT}") || exit 1
 TARGET_BYTES=$((disk_size_gb * 1073741824))
 if [ "$CURRENT_BYTES" -gt "$TARGET_BYTES" ]; then
     CURRENT_GIB=$(awk -v bytes="$CURRENT_BYTES" 'BEGIN { printf "%.2f", bytes / 1073741824 }')
@@ -271,7 +292,7 @@ fi
 # Convert to VMDK format（本地重跑换 -s 时旧 vmdk 虚拟大小与目标不符，删除重转）
 VMDK_BYTES=""
 if [ -f "${FILE_NAME}.${FILE_DEST_EXT}" ]; then
-    VMDK_BYTES=$(qemu-img info --output=json "${FILE_NAME}.${FILE_DEST_EXT}" | grep -oE '"virtual-size": [0-9]+' | grep -oE '[0-9]+')
+    VMDK_BYTES=$(get_virtual_size "${FILE_NAME}.${FILE_DEST_EXT}") || exit 1
 fi
 if [ -f "${FILE_NAME}.${FILE_DEST_EXT}" ] && [ "$VMDK_BYTES" != "$TARGET_BYTES" ]; then
     echo "[WARN] VMDK 虚拟大小(${VMDK_BYTES})与目标(${TARGET_BYTES})不符，删除重转"

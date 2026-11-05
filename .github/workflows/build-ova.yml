@@ -98,7 +98,7 @@ jobs:
         run: |
           echo "[INFO] 正在安装依赖..."
           sudo apt update -qq
-          sudo apt install -y wget qemu-utils cloud-image-utils
+          sudo apt install -y wget qemu-utils cloud-image-utils python3
           echo "[INFO] 依赖安装完成"
 
       - name: 构建 OVA
@@ -268,6 +268,7 @@ jobs:
       - name: 构建摘要
         if: always()
         env:
+          BUILD_STATUS: ${{ job.status }}
           BUILD_VERSION: ${{ steps.build.outputs.TARGET_VERSION }}
           DEBIAN_BUILD: ${{ steps.build.outputs.DEBIAN_BUILD }}
           OVA_FILE_SIZE: ${{ steps.build.outputs.OVA_FILE_SIZE }}
@@ -276,7 +277,7 @@ jobs:
           OVA_FILE_NAME: ${{ steps.build.outputs.OVA_FILE_NAME }}
         run: |
           echo ""
-          echo "[INFO] Debian OVA 构建完成"
+          echo "[INFO] Debian OVA 构建状态: ${BUILD_STATUS}"
           echo "[INFO] 版本: ${BUILD_VERSION}"
           echo "[INFO] vCPU: ${TARGET_VCPU}"
           echo "[INFO] 内存: ${TARGET_MEMORY}MB"
