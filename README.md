@@ -129,6 +129,16 @@ sudo chage -d 0 debian
 | 阿里云 | `https://mirrors.aliyun.com/debian` |
 | 华为云 | `https://repo.huaweicloud.com/debian` |
 
+console 模式下，等待首次初始化完成后，可在虚拟机控制台执行以下命令手动改源（以清华大学为例）：
+
+```bash
+sudo cp -a /etc/apt/mirrors/debian.list "/etc/apt/mirrors/debian.list.$(date +%Y%m%d_%H%M%S).bak"
+printf '%s\n' 'https://mirrors.tuna.tsinghua.edu.cn/debian' | sudo tee /etc/apt/mirrors/debian.list > /dev/null
+sudo apt update
+```
+
+可将示例地址替换为上表中的其他软件源；仅修改普通软件源列表，安全更新源保持不变。
+
 ### 2. 虚拟机工具集
 
 面板中的“安装 open-vm-tools”默认勾选，首次启动时安装并启用。取消勾选后不主动安装或启动工具，也不卸载镜像可能已有的版本。未联网导致安装失败时，可在虚拟机中手动安装：
