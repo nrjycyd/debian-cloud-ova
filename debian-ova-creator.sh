@@ -258,12 +258,13 @@ if [[ "$install_vm_tools" == "true" ]]; then
 EOFCONFIG
 fi
 
-# 保留已有源的格式、套件、组件和签名配置，阻止后续 APT 模块重新生成源。
+# 保留已有源及 mirror 文件；Debian 的 generate_mirrorlists 会优先于 preserve_sources_list。
 if [[ "$apt_mirror" != "official" ]]; then
     cat >> "$CLOUD_CONFIG_FILE" << 'EOFCONFIG'
 
 apt:
   preserve_sources_list: true
+  generate_mirrorlists: false
 EOFCONFIG
 fi
 

@@ -119,7 +119,7 @@ sudo chage -d 0 debian
 
 - **官方源（默认）**：保留官方镜像的软件源配置。
 - **选择中国软件源**：首次启动时将已有 Debian 官方普通软件源地址替换为所选镜像站，安全更新仍使用 `https://security.debian.org/debian-security`。
-- 换源在 cloud-init 的 APT 配置和软件包安装前执行，适用于默认非 SSH 镜像及附加 SSH 镜像。
+- 换源在 cloud-init 的 APT 配置和软件包安装前执行，适用于默认非 SSH 镜像及附加 SSH 镜像。选择非官方源时同时禁止重新生成 sources.list 和 mirror 地址文件，避免所选源被后续 APT 配置覆盖。
 - 按实际文件处理 `/etc/apt/sources.list`、`/etc/apt/sources.list.d/*.list`、`*.sources` 以及 `/etc/apt/mirrors/*.list`，保留版本代号、组件、签名校验和第三方软件源。原文件备份在 `/etc/apt/ova-source-backups/`，不额外添加重复源。
 - 构建日志、摘要及 Release 说明标明本次软件源设置。GitHub runner 的 Ubuntu 源和官方云镜像下载地址不受此选项影响。
 
