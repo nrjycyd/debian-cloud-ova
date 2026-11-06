@@ -235,7 +235,7 @@ jobs:
         run: |
           echo "[INFO] 正在安装依赖..."
           sudo apt update -qq
-          sudo apt install -y wget qemu-utils cloud-image-utils python3
+          sudo apt install -y --no-install-recommends wget qemu-utils cloud-image-utils python3 guestfish
           echo "[INFO] 依赖安装完成"
 
       - name: 构建 OVA
@@ -521,5 +521,5 @@ jobs:
       - name: 清理
         if: always()
         run: |
-          rm -f *.qcow2 *.vmdk *.ovf *.mf *.ova cidata.iso 2>/dev/null || true
+          rm -f *.qcow2 *.vmdk *.ovf *.mf *.ova *.growroot-prepared.sha256 cidata.iso 2>/dev/null || true
           echo "[INFO] 清理完成"

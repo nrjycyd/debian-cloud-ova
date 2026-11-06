@@ -238,6 +238,12 @@ ssh_pwauth: $enable_ssh
 disable_root: $([[ "$enable_ssh" == "true" ]] && echo false || echo true)
 timezone: $guest_timezone
 
+growpart:
+  mode: auto
+  devices: ['/']
+  ignore_growroot_disabled: true
+resize_rootfs: true
+
 chpasswd:
   list: |
     $username:$password
@@ -413,6 +419,39 @@ ACTUAL_DISK_GIB=$(awk -v bytes="$TARGET_BYTES" 'BEGIN { printf "%.2f", bytes / 1
 if [ "$CURRENT_BYTES" -lt "$TARGET_BYTES" ]; then
     qemu-img resize "${FILE_NAME}.${FILE_ORIG_EXT}" "${disk_size_gb}G"
     echo "[INFO] 磁盘已扩容到 ${disk_size_gb}G（开机后 cloud-init growpart 自动扩展根分区）"
+fi
+
+# 在首次开机之前关闭 initramfs growroot，避免无串口时卸载根分区引发 init panic。
+# 由上方 cloud-config 的 growpart/resize_rootfs 在系统服务阶段完成扩容。
+# 缓存绑定 qcow2 内容摘要；批量构建复用准备结果，源盘变化时重新准备并使 VMDK 失效。
+PREPARED_FILE="${FILE_NAME}.growroot-prepared.sha256"
+SOURCE_HASH=$(sha256sum "${FILE_NAME}.${FILE_ORIG_EXT}" | cut -d " " -f1)
+if [[ ! -f "$PREPARED_FILE" ]] || [[ "$(< "$PREPARED_FILE")" != "growroot-disabled-v1:$SOURCE_HASH" ]]; then
+    echo "[INFO] Preparing cloud-init disk growth..."
+    # GitHub runner 默认非 root；guestfish 需要读取宿主内核并访问虚拟化设备。
+    GUESTFISH_COMMAND=(env LIBGUESTFS_BACKEND=direct guestfish)
+    if [[ "$EUID" -ne 0 ]]; then
+        GUESTFISH_COMMAND=(sudo -n "${GUESTFISH_COMMAND[@]}")
+    fi
+    if ! PREPARE_RESULT=$("${GUESTFISH_COMMAND[@]}" --rw --format=qcow2 \
+        -a "${FILE_NAME}.${FILE_ORIG_EXT}" -i <<'EOFGUESTFS'
+touch /etc/growroot-disabled
+sync
+is-file /etc/growroot-disabled
+EOFGUESTFS
+    ); then
+        echo "[ERROR] 无法在镜像中禁用早期 growroot，停止构建。" >&2
+        exit 1
+    fi
+    if [[ "$PREPARE_RESULT" != true ]]; then
+        echo "[ERROR] growroot 禁用标记校验失败，停止构建。" >&2
+        exit 1
+    fi
+    rm -f "${FILE_NAME}.${FILE_DEST_EXT}"
+    SOURCE_HASH=$(sha256sum "${FILE_NAME}.${FILE_ORIG_EXT}" | cut -d " " -f1)
+    printf 'growroot-disabled-v1:%s\n' "$SOURCE_HASH" > "$PREPARED_FILE"
+else
+    echo "[INFO] Cloud-init disk growth preparation already cached"
 fi
 
 # Convert to VMDK format（缓存 VMDK 容量与目标不符时重新转换）
