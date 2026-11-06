@@ -43,6 +43,8 @@ class ManifestTests(unittest.TestCase):
         for group, key, value in (
             (None, "target_count", True), (None, "images", {}), (None, "settings", []),
             ("settings", "memory", "1024"), ("settings", "install_vm_tools", "true"),
+            ("settings", "vcpu", True), ("settings", "memory", True), ("settings", "disk", True),
+            ("settings", "install_vm_tools", 1),
             ("release", "prerelease", 0), ("source", "build", None),
         ):
             manifest = copy.deepcopy(base)

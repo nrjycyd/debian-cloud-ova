@@ -40,6 +40,8 @@ shellcheck debian-ova-creator.sh scripts/publish.sh guest/*.sh
 /usr/bin/python3 -m unittest tests.test_panel_publish -v
 ```
 
+CI 在 `$RUNNER_TEMP/check-venv` 创建临时工具环境；本地使用已被 Git 忽略的 `.venv-check/`，两者读取同一份 `requirements-check.txt`。
+
 测试使用隔离目录和磁盘工具替身，不下载真实 qcow2、不发布 Release、不修改宿主机服务或软件源。它们不能代替 ESXi 启动验证。启动相关变更还应验证无串口环境中的首次扩容、`cloud-init status --long`、SSH/控制台账户以及实际分区和文件系统容量。
 
 ## 必须保留的约定

@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,6 +12,7 @@ from tests.support import ROOT
 from config import MIRRORS, TIMEZONES, VERSIONS, catalog
 from panel import validate as validate_panel
 from release import policy
+from tests.test_manifest import sample_manifest
 
 
 class PanelTests(unittest.TestCase):
@@ -64,6 +66,17 @@ class PanelTests(unittest.TestCase):
 
 
 class PublishTests(unittest.TestCase):
+    def test_release_options_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "manifest.json"
+            manifest = sample_manifest()
+            path.write_text(json.dumps(manifest))
+            env = dict(os.environ, BUILD_MANIFEST=str(path), GITHUB_REF="refs/heads/main",
+                       FINAL_TAG=manifest["release"]["tag"], TARGET_VERSION=manifest["settings"]["version"])
+            result = subprocess.run([sys.executable, str(ROOT / "scripts/report.py"), "release-options"],
+                                    env=env, text=True, capture_output=True, check=True)
+            self.assertEqual(result.stdout.splitlines(), ["Debian 13 OVA - 20261106-1234", "--prerelease=false"])
+
     def test_existing_new_raced_and_failed_publications(self):
         self.publish_modes("refs/heads/main")
 

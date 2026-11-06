@@ -132,12 +132,14 @@ sudo chage -d 0 debian
 官方源手动改源（以清华大学为例）：
 
 ```bash
-sudo cp -a /etc/apt/mirrors/debian.list "/etc/apt/mirrors/debian.list.$(date +%Y%m%d_%H%M%S).bak"
+if [ ! -e /etc/apt/mirrors/debian.list.bak ]; then
+    sudo cp -a /etc/apt/mirrors/debian.list /etc/apt/mirrors/debian.list.bak
+fi
 printf '%s\n' 'https://mirrors.tuna.tsinghua.edu.cn/debian' | sudo tee /etc/apt/mirrors/debian.list > /dev/null
 sudo apt update
 ```
 
-可将示例地址替换为上表中的其他软件源；仅修改普通软件源列表，安全更新源保持不变。
+可将示例地址替换为上表中的其他软件源。已有 `.bak` 不覆盖；手动命令将普通源列表设为单个地址，安全更新源保持不变。
 
 ### 2. 虚拟机工具集
 
