@@ -1,0 +1,103 @@
+"""Shared validation for Actions inputs and the internal image builder."""
+
+import json
+import re
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+VERSIONS = {"12": "bookworm", "13": "trixie"}
+MIRRORS = {
+    "official": ("官方源", ""),
+    "tuna": ("清华大学", "https://mirrors.tuna.tsinghua.edu.cn/debian"),
+    "ustc": ("中国科学技术大学", "https://mirrors.ustc.edu.cn/debian"),
+    "aliyun": ("阿里云", "https://mirrors.aliyun.com/debian"),
+    "huawei": ("华为云", "https://repo.huaweicloud.com/debian"),
+}
+TIMEZONES = (
+    "UTC", "Asia/Shanghai", "Asia/Hong_Kong", "Asia/Singapore", "Asia/Tokyo",
+    "Europe/London", "Europe/Berlin", "America/New_York",
+)
+
+
+def integer(value, minimum, maximum, name):
+    # int has no machine-word overflow; bound length before parsing API input.
+    text = str(value)
+    if not re.fullmatch(r"[0-9]{1,32}", text):
+        raise ValueError(f"{name} 必须是 {minimum}-{maximum} 之间的整数")
+    number = int(text, 10)
+    if not minimum <= number <= maximum:
+        raise ValueError(f"{name} 必须在 {minimum}-{maximum} 之间")
+    return number
+
+
+def boolean(value, name):
+    if value not in ("true", "false"):
+        raise ValueError(f"{name} 必须为 true 或 false")
+    return value == "true"
+
+
+def validate(values, *, image=False):
+    """Return normalized settings; image=True allows root in the SSH variant."""
+    result = dict(values)
+    if result["version"] not in VERSIONS:
+        raise ValueError("仅支持 Debian 12/13")
+    for key, low, high in (("vcpu", 1, 64), ("memory", 256, 262144), ("disk", 2, 2048)):
+        result[key] = integer(result[key], low, high, key)
+    if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9-]{0,62}", result["hostname"]):
+        raise ValueError("主机名不合法（字母/数字/连字符，最多 63 字符）")
+    if not re.fullmatch(r"[A-Za-z0-9@#%+=.,_-]+", result["password"]):
+        raise ValueError("密码仅允许字母、数字和 @#%+=.,_-")
+    for key in ("enable_ssh", "install_vm_tools"):
+        result[key] = boolean(result[key], key)
+    if result["timezone"] not in TIMEZONES:
+        raise ValueError("不支持的时区")
+    if result["mirror"] not in MIRRORS:
+        raise ValueError("不支持的软件源")
+    if image and result["enable_ssh"]:
+        result["username"] = "root"
+    elif result["username"] == "root":
+        raise ValueError("非 SSH 镜像请填写普通用户名，SSH 镜像固定使用 root")
+    if not re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", result["username"]):
+        raise ValueError("用户名不合法（小写字母或下划线开头，最多 32 字符）")
+    return result
+
+
+def from_environment(env):
+    keys = {
+        "version": "TARGET_VERSION", "vcpu": "TARGET_VCPU", "memory": "TARGET_MEMORY",
+        "disk": "TARGET_DISK", "hostname": "TARGET_HOSTNAME", "username": "TARGET_USERNAME",
+        "password": "TARGET_PASSWORD", "enable_ssh": "TARGET_ENABLE_SSH",
+        "install_vm_tools": "TARGET_INSTALL_VM_TOOLS", "timezone": "TARGET_TIMEZONE",
+    }
+    values = {key: env.get(variable, "") for key, variable in keys.items()}
+    labels = {label: key for key, (label, _) in MIRRORS.items()}
+    values["mirror"] = labels.get(env.get("TARGET_APT_MIRROR"))
+    return validate(values)
+
+
+def catalog():
+    return json.loads((ROOT / ".github/build-targets.json").read_text(encoding="utf-8"))
+
+
+def select_targets(env):
+    presets = {item["label"]: item for item in catalog()}
+    selected, seen = [], set()
+    for slot, key in enumerate(("TARGET_BUILD", "TARGET_BUILD_2", "TARGET_BUILD_3", "TARGET_BUILD_4"), 1):
+        label = env.get(key, "")
+        if slot > 1 and label in ("", "不构建"):
+            continue
+        if label not in presets:
+            raise ValueError(f"构建目标 {slot} 无效，请从下拉框选择")
+        item = presets[label]
+        identity = (item["vmx"], item["os_type"])
+        if identity not in seen:
+            selected.append(item)
+            seen.add(identity)
+    return selected
+
+
+def target(vmx, os_id, os_type):
+    for item in catalog():
+        if (item["vmx"], str(item["os_id"]), item["os_type"]) == (vmx, str(os_id), os_type):
+            return item
+    raise ValueError("无效的 ESXi / Guest OS 组合")

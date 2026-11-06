@@ -197,329 +197,67 @@ on:
         description: '登录密码'
         required: false
         default: '123456'
-      # release_tag:
-      #   description: 'Git 发布标签（如 v1.0.0）'
-      #   required: true
-      #   default: 'v1.0.0'
+
+# Serialize all branches of the same Debian version, including queued requests.
+concurrency:
+  group: ova-debian-${{ inputs.debian_version }}
+  cancel-in-progress: false
+  queue: max
 
 jobs:
   build_ova:
     name: 构建 Debian OVA
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # 创建 Release 需要写 contents（新仓库默认只读 token 会 403）
-
+      contents: write
     env:
       TARGET_VERSION: ${{ inputs.debian_version }}
-      TARGET_BUILD: ${{ github.event.inputs.build_target }}
+      TARGET_BUILD: ${{ inputs.build_target }}
       TARGET_BUILD_2: ${{ inputs.build_target_2 }}
       TARGET_BUILD_3: ${{ inputs.build_target_3 }}
       TARGET_BUILD_4: ${{ inputs.build_target_4 }}
-      TARGET_VCPU: ${{ github.event.inputs.vcpu }}
-      TARGET_MEMORY: ${{ github.event.inputs.memory }}
-      TARGET_DISK: ${{ github.event.inputs.disk_size }}
-      TARGET_HOSTNAME: ${{ github.event.inputs.hostname }}
-      TARGET_USERNAME: ${{ github.event.inputs.username }}
-      TARGET_PASSWORD: ${{ github.event.inputs.password }}
+      TARGET_VCPU: ${{ inputs.vcpu }}
+      TARGET_MEMORY: ${{ inputs.memory }}
+      TARGET_DISK: ${{ inputs.disk_size }}
+      TARGET_HOSTNAME: ${{ inputs.hostname }}
+      TARGET_USERNAME: ${{ inputs.username }}
+      TARGET_PASSWORD: ${{ inputs.password }}
       TARGET_ENABLE_SSH: ${{ inputs.enable_ssh && 'true' || 'false' }}
       TARGET_APT_MIRROR: ${{ inputs.apt_mirror }}
       TARGET_INSTALL_VM_TOOLS: ${{ inputs.install_vm_tools && 'true' || 'false' }}
       TARGET_TIMEZONE: ${{ inputs.timezone }}
-      # RELEASE_TAG: ${{ github.event.inputs.release_tag }}
 
     steps:
       - name: 检出仓库
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: 安装依赖
         run: |
-          echo "[INFO] 正在安装依赖..."
           sudo apt update -qq
-          sudo apt install -y --no-install-recommends wget qemu-utils cloud-image-utils python3 guestfish
-          echo "[INFO] 依赖安装完成"
+          sudo apt install -y --no-install-recommends qemu-utils cloud-image-utils python3 guestfish
 
       - name: 构建 OVA
         id: build
-        run: |
-          chmod +x ./debian-ova-creator.sh
-
-          # 参数校验（上限防止生成非法 OVF，hostname/密码防 cloud-init 配置破坏）
-          case "$TARGET_INSTALL_VM_TOOLS" in
-            true|false) ;;
-            *) echo "[ERROR] open-vm-tools 开关必须为 true 或 false"; exit 1 ;;
-          esac
-          case "$TARGET_TIMEZONE" in
-            UTC|Asia/Shanghai|Asia/Hong_Kong|Asia/Singapore|Asia/Tokyo|Europe/London|Europe/Berlin|America/New_York) ;;
-            *) echo "[ERROR] 不支持的时区"; exit 1 ;;
-          esac
-          if ! [[ "${TARGET_VCPU}" =~ ^[0-9]+$ ]] || [ "${TARGET_VCPU}" -lt 1 ] || [ "${TARGET_VCPU}" -gt 64 ]; then
-              echo "[ERROR] vCPU 必须在 1-64 之间"; exit 1
-          fi
-          if ! [[ "${TARGET_MEMORY}" =~ ^[0-9]+$ ]] || [ "${TARGET_MEMORY}" -lt 256 ] || [ "${TARGET_MEMORY}" -gt 262144 ]; then
-              echo "[ERROR] 内存必须在 256-262144 MB 之间"; exit 1
-          fi
-          if ! [[ "${TARGET_DISK}" =~ ^[0-9]+$ ]] || [ "${TARGET_DISK}" -lt 2 ] || [ "${TARGET_DISK}" -gt 2048 ]; then
-              echo "[ERROR] 磁盘必须在 2-2048 GB 之间"; exit 1
-          fi
-          if ! [[ "${TARGET_HOSTNAME}" =~ ^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$ ]]; then
-              echo "[ERROR] 主机名不合法（字母/数字/连字符，≤63 字符）"; exit 1
-          fi
-          if ! [[ "${TARGET_PASSWORD}" =~ ^[A-Za-z0-9@#%+=.,_-]+$ ]]; then
-              echo "[ERROR] 密码含非法字符（仅允许字母/数字/@#%+=.,_-）"; exit 1
-          fi
-          case "$TARGET_ENABLE_SSH" in
-            true|false) LOGIN_USERNAME="$TARGET_USERNAME" ;;
-            *) echo "[ERROR] SSH 开关必须为 true 或 false"; exit 1 ;;
-          esac
-          case "$TARGET_APT_MIRROR" in
-            官方源) APT_MIRROR=official; APT_SOURCE_LABEL='官方源' ;;
-            清华大学) APT_MIRROR=tuna; APT_SOURCE_LABEL='清华大学' ;;
-            中国科学技术大学) APT_MIRROR=ustc; APT_SOURCE_LABEL='中国科学技术大学' ;;
-            阿里云) APT_MIRROR=aliyun; APT_SOURCE_LABEL='阿里云' ;;
-            华为云) APT_MIRROR=huawei; APT_SOURCE_LABEL='华为云' ;;
-            *) echo "[ERROR] 不支持的软件源选项"; exit 1 ;;
-          esac
-          if ! [[ "$LOGIN_USERNAME" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
-              echo "[ERROR] 用户名不合法（小写字母开头，字母/数字/_/-，≤32 字符）"; exit 1
-          fi
-          if [[ "$LOGIN_USERNAME" == root ]]; then
-              echo "[ERROR] 非 SSH 镜像请填写普通用户名，附加 SSH 镜像固定使用 root"; exit 1
-          fi
-
-          # 校验所选系统版本。
-          if ! [[ "$TARGET_VERSION" =~ ^(12|13)$ ]]; then
-              echo "[ERROR] 不支持的 Debian 版本: $TARGET_VERSION"; exit 1
-          fi
-
-          # 精确匹配面板预设，拒绝 API 手填的无效组合；按槽位顺序去重。
-          TARGET_PLAN="$RUNNER_TEMP/selected-targets.tsv"
-          python3 - "$TARGET_PLAN" <<'PY'
-          import json, os, sys
-          from pathlib import Path
-          catalog = {item["label"]: item for item in json.loads(Path(".github/build-targets.json").read_text())}
-          selected = []
-          seen = set()
-          for index, key in enumerate(("TARGET_BUILD", "TARGET_BUILD_2", "TARGET_BUILD_3", "TARGET_BUILD_4")):
-              label = os.environ.get(key, "")
-              if index and label in ("", "不构建"):
-                  continue
-              if label not in catalog:
-                  sys.exit(f"::error::构建目标 {index + 1} 无效，请从下拉框选择")
-              item = catalog[label]
-              identity = (item["vmx"], item["dgnu"])
-              if identity not in seen:
-                  selected.append(item)
-                  seen.add(identity)
-          Path(sys.argv[1]).write_text("".join(
-              f"{x['label']}\t{x['vmx']}\t{x['os_id']}\t{x['os_type']}\n" for x in selected))
-          PY
-
-          echo "[INFO] 开始构建 OVA，参数如下："
-          echo "[INFO] Debian 版本: $TARGET_VERSION"
-          echo "[INFO] 构建目标: $TARGET_BUILD"
-          echo "[INFO] vCPU: ${TARGET_VCPU}"
-          echo "[INFO] 内存: ${TARGET_MEMORY}MB"
-          echo "[INFO] 磁盘: ${TARGET_DISK}GB"
-          echo "[INFO] 主机名: ${TARGET_HOSTNAME}"
-          echo "[INFO] 登录账户: $LOGIN_USERNAME"
-          echo "[INFO] 附加 SSH 镜像: $TARGET_ENABLE_SSH"
-          echo "[INFO] 软件源: $APT_SOURCE_LABEL"
-          echo "[INFO] 安装 open-vm-tools: $TARGET_INSTALL_VM_TOOLS"
-          echo "[INFO] 时区: $TARGET_TIMEZONE"
-
-          build_image() {
-            local mode="$1" output="$2"
-            : > "$output"
-            GITHUB_OUTPUT="$output" ./debian-ova-creator.sh \
-              -d "$TARGET_VERSION" \
-              -c "$TARGET_VCPU" \
-              -m "$TARGET_MEMORY" \
-              -s "$TARGET_DISK" \
-              -H "$TARGET_HOSTNAME" \
-              -u "$TARGET_USERNAME" \
-              -p "$TARGET_PASSWORD" \
-              -S "$mode" \
-              -M "$APT_MIRROR" \
-              -V "$TARGET_INSTALL_VM_TOOLS" \
-              -T "$TARGET_TIMEZONE"
-          }
-          read_output() {
-            python3 - "$1" "$2" <<'PY'
-          import sys
-          from pathlib import Path
-          values = dict(line.split("=", 1) for line in Path(sys.argv[1]).read_text().splitlines())
-          print(values[sys.argv[2]])
-          PY
-          }
-
-          # 同一系统共用云镜像和 VMDK 缓存；全部成功后统一发布。
-          IMAGE_TABLE="$RUNNER_TEMP/image-table.md"
-          ASSET_LIST="$RUNNER_TEMP/ova-assets.txt"
-          : > "$IMAGE_TABLE"
-          : > "$ASSET_LIST"
-          TARGET_COUNT=0
-          ACTUAL_DISK_BYTES=""
-          while IFS=$'\t' read -r BUILD_LABEL VIRTUAL_SYSTEM_TYPE OVF_OS_ID OVF_OS_TYPE; do
-            TARGET_COUNT=$((TARGET_COUNT + 1))
-            export VIRTUAL_SYSTEM_TYPE OVF_OS_ID OVF_OS_TYPE
-            echo "[INFO] 构建目标 $TARGET_COUNT: $BUILD_LABEL"
-            MODES=(false)
-            if [[ "$TARGET_ENABLE_SSH" == true ]]; then
-              MODES+=(true)
-            fi
-            for mode in "${MODES[@]}"; do
-              OUTPUT="$RUNNER_TEMP/target-${TARGET_COUNT}-${mode}.outputs"
-              build_image "$mode" "$OUTPUT"
-              FILE_NAME=$(read_output "$OUTPUT" OVA_FILE_NAME)
-              FILE_SIZE=$(read_output "$OUTPUT" OVA_FILE_SIZE)
-              DISK_BYTES=$(read_output "$OUTPUT" ACTUAL_DISK_BYTES)
-              if [[ -n "$ACTUAL_DISK_BYTES" && "$DISK_BYTES" != "$ACTUAL_DISK_BYTES" ]]; then
-                echo "::error::批量镜像的磁盘容量不一致"; exit 1
-              fi
-              ACTUAL_DISK_BYTES="$DISK_BYTES"
-              ACTUAL_DISK_GIB=$(read_output "$OUTPUT" ACTUAL_DISK_GIB)
-              if [[ "$mode" == true ]]; then
-                IMAGE_KIND='ssh'; IMAGE_USER=root; IMAGE_LOGIN='SSH 密码登录'
-              else
-                IMAGE_KIND='console'; IMAGE_USER="$LOGIN_USERNAME"; IMAGE_LOGIN='虚拟机控制台'
-              fi
-              printf '%s\n' "$FILE_NAME" >> "$ASSET_LIST"
-              printf '| %s | %s | %s | %s | %s | %s | %s |\n' \
-                "$BUILD_LABEL" "$IMAGE_KIND" "$FILE_NAME" "$IMAGE_USER" "$IMAGE_LOGIN" "$FILE_SIZE" "$ACTUAL_DISK_GIB GB" >> "$IMAGE_TABLE"
-              echo "[INFO] 已生成 $FILE_NAME（$FILE_SIZE）"
-            done
-          done < "$TARGET_PLAN"
-
-          # 解析 Debian 官方 build 号（latest 目录页中最大 YYYYMMDD-NNNN），追加到发布标签
-          case "$TARGET_VERSION" in
-            12) CODENAME="bookworm" ;;
-            13) CODENAME="trixie" ;;
-          esac
-          DEBIAN_BUILD=$(curl -s --max-time 30 "https://cloud.debian.org/images/cloud/${CODENAME}/" | grep -oE '[0-9]{8}-[0-9]+/' | sort -u | tail -1 | tr -d '/') || true
-          if [ -z "$DEBIAN_BUILD" ]; then
-              echo "[WARN] 未能解析 Debian build 号（网络或目录页结构变化），回退为日期"
-              DEBIAN_BUILD=$(date -u +%Y%m%d)
-          fi
-          echo "[INFO] Debian 官方 build 号：$DEBIAN_BUILD"
-
-          echo "IMAGE_TABLE=$IMAGE_TABLE" >> "$GITHUB_OUTPUT"
-          echo "ASSET_LIST=$ASSET_LIST" >> "$GITHUB_OUTPUT"
-          echo "TARGET_COUNT=$TARGET_COUNT" >> "$GITHUB_OUTPUT"
-          echo "LOGIN_USERNAME=$LOGIN_USERNAME" >> "$GITHUB_OUTPUT"
-          echo "SSH_ENABLED=$TARGET_ENABLE_SSH" >> "$GITHUB_OUTPUT"
-          echo "ACTUAL_DISK_GIB=$ACTUAL_DISK_GIB" >> "$GITHUB_OUTPUT"
-          echo "ACTUAL_DISK_BYTES=$ACTUAL_DISK_BYTES" >> "$GITHUB_OUTPUT"
-          echo "APT_SOURCE_LABEL=$APT_SOURCE_LABEL" >> "$GITHUB_OUTPUT"
-          echo "BUILD_TIME=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> "$GITHUB_OUTPUT"
-          echo "DEBIAN_BUILD=$DEBIAN_BUILD" >> "$GITHUB_OUTPUT"
-          echo "FINAL_TAG=${DEBIAN_BUILD}" >> "$GITHUB_OUTPUT"
-          echo "TARGET_VERSION=$TARGET_VERSION" >> "$GITHUB_OUTPUT"
+        run: python3 scripts/build.py
 
       - name: 创建 GitHub Release
-        # 自定义 if 会替换默认 success() 检查，必须显式带 success()，否则构建失败后仍会执行
         if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          IMAGE_TABLE: ${{ steps.build.outputs.IMAGE_TABLE }}
-          ASSET_LIST: ${{ steps.build.outputs.ASSET_LIST }}
-          LOGIN_USERNAME: ${{ steps.build.outputs.LOGIN_USERNAME }}
-          SSH_ENABLED: ${{ steps.build.outputs.SSH_ENABLED }}
-          ACTUAL_DISK_GIB: ${{ steps.build.outputs.ACTUAL_DISK_GIB }}
-          BUILD_VERSION: ${{ steps.build.outputs.TARGET_VERSION }}
-          DEBIAN_BUILD: ${{ steps.build.outputs.DEBIAN_BUILD }}
-          BUILD_TIME: ${{ steps.build.outputs.BUILD_TIME }}
+          BUILD_MANIFEST: ${{ steps.build.outputs.BUILD_MANIFEST }}
           FINAL_TAG: ${{ steps.build.outputs.FINAL_TAG }}
-          APT_SOURCE_LABEL: ${{ steps.build.outputs.APT_SOURCE_LABEL }}
-        run: |
-          mapfile -t ASSETS < "$ASSET_LIST"
-          if [[ "${#ASSETS[@]}" -eq 0 ]]; then
-            echo "::error::没有可发布的镜像"; exit 1
-          fi
-          IMAGE_ROWS=$(cat "$IMAGE_TABLE")
-          RELEASE_NOTES_FILE="$RUNNER_TEMP/release-notes.md"
-          cat > "$RELEASE_NOTES_FILE" <<EOF
-          ## Debian 云镜像 OVA
-
-          **构建配置：**
-          - Debian 版本：**${BUILD_VERSION}**
-          - Debian Build 号：**${DEBIAN_BUILD}**
-          - vCPU：**${TARGET_VCPU}**
-          - 内存：**${TARGET_MEMORY}MB**
-          - 磁盘大小：**${ACTUAL_DISK_GIB} GB**
-          - 主机名：**${TARGET_HOSTNAME}**
-          - 软件源：**${APT_SOURCE_LABEL}**
-          - 安装 open-vm-tools：**${TARGET_INSTALL_VM_TOOLS}**
-          - 时区：**${TARGET_TIMEZONE}**
-          - 默认镜像：**非 SSH（控制台登录）**
-          - 构建时间：**${BUILD_TIME}**
-
-          | 构建目标 | 镜像 | 文件 | 登录账户 | 登录方式 | 文件大小 | 磁盘大小 |
-          | --- | --- | --- | --- | --- | --- | --- |
-          ${IMAGE_ROWS}
-
-          **快速开始：**
-          1. 从 Release 资产中下载 OVA 文件
-          2. 导入 VMware 或兼容的虚拟化平台
-          3. 开机并使用以下凭据登录：
-             - 默认非 SSH 镜像：通过虚拟机控制台登录，用户名 \`${LOGIN_USERNAME}\`
-             - SSH 镜像（如有）：等待 cloud-init 完成后执行 \`ssh root@<虚拟机 IP>\`
-             - 密码：\`${TARGET_PASSWORD}\`
-
-          **Cloud-Init 支持：**
-          - 自定义主机名配置
-          - 默认配置普通用户，附加 SSH 镜像配置 root
-          - 执行 user-data 脚本
-          EOF
-
-          # 同 tag 复用：Release 已存在则追加 OVA 资产（保留之前编译的其他 ESXi 版本镜像），不存在则创建
-          if gh release view "${FINAL_TAG}" >/dev/null 2>&1; then
-              gh release upload "${FINAL_TAG}" \
-                "${ASSETS[@]}" --clobber
-              # 每次只展示最新成功构建的一份完整说明，历史下载资产保留。
-              gh release edit "$FINAL_TAG" \
-                --title "Debian ${BUILD_VERSION} OVA - ${FINAL_TAG}" \
-                --notes-file "$RELEASE_NOTES_FILE"
-              echo "[INFO] Release 已更新，已上传 ${#ASSETS[@]} 份镜像"
-          else
-              gh release create "${FINAL_TAG}" \
-                "${ASSETS[@]}" \
-                --title "Debian ${BUILD_VERSION} OVA - ${FINAL_TAG}" \
-                --notes-file "$RELEASE_NOTES_FILE"
-              echo "[INFO] Release 创建完成：${FINAL_TAG}"
-          fi
+        run: bash scripts/publish.sh
 
       - name: 构建摘要
         if: always()
         env:
           BUILD_STATUS: ${{ job.status }}
-          ACTUAL_DISK_GIB: ${{ steps.build.outputs.ACTUAL_DISK_GIB }}
-          APT_SOURCE_LABEL: ${{ steps.build.outputs.APT_SOURCE_LABEL }}
-          IMAGE_TABLE: ${{ steps.build.outputs.IMAGE_TABLE }}
-          TARGET_COUNT: ${{ steps.build.outputs.TARGET_COUNT }}
-        run: |
-          echo "[INFO] Debian OVA 构建状态: $BUILD_STATUS"
-          if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
-            {
-              printf '## Debian %s OVA 构建结果\n\n' "$TARGET_VERSION"
-              printf -- '- 状态：%s\n' "$BUILD_STATUS"
-              printf -- '- 构建机型：%s\n' "${TARGET_COUNT:-未完成}"
-              printf -- '- 软件源：%s\n' "${APT_SOURCE_LABEL:-未生成}"
-              printf -- '- 安装 open-vm-tools：%s\n' "$TARGET_INSTALL_VM_TOOLS"
-              printf -- '- 时区：%s\n' "$TARGET_TIMEZONE"
-              printf -- '- 请求磁盘容量：%s GiB\n' "$TARGET_DISK"
-              printf -- '- 实际磁盘容量：%s GiB\n' "${ACTUAL_DISK_GIB:-未生成}"
-              if [[ -n "$IMAGE_TABLE" && -f "$IMAGE_TABLE" ]]; then
-                printf '\n| 构建目标 | 镜像 | 文件 | 登录账户 | 登录方式 | 文件大小 | 磁盘大小 |\n'
-                printf '| --- | --- | --- | --- | --- | --- | --- |\n'
-                cat "$IMAGE_TABLE"
-              else
-                printf '\n构建未完成，请查看失败步骤的错误信息；本次未发布镜像。\n'
-              fi
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi
+          BUILD_MANIFEST: ${{ steps.build.outputs.BUILD_MANIFEST }}
+        run: python3 scripts/report.py summary
 
       - name: 清理
         if: always()
         run: |
-          rm -f *.qcow2 *.vmdk *.ovf *.mf *.ova *.growroot-prepared.sha256 cidata.iso 2>/dev/null || true
-          echo "[INFO] 清理完成"
+          rm -f -- ./*.qcow2 ./*.vmdk ./*.ovf ./*.mf ./*.ova ./*.ova.part ./*.source.sha512 ./*.growroot-prepared.sha256 ./cidata.iso

@@ -1,0 +1,26 @@
+name: 代码检查
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: 安装检查依赖
+        run: |
+          sudo apt update -qq
+          sudo apt install -y --no-install-recommends python3-yaml cloud-init shellcheck
+      - name: 检查脚本和机型面板
+        run: |
+          shellcheck debian-ova-creator.sh scripts/publish.sh guest/*.sh
+          /usr/bin/python3 scripts/update-panel.py --check
+      - name: 回归检查
+        run: /usr/bin/python3 -m unittest discover -s tests -v

@@ -1,0 +1,95 @@
+"""Generate the summary and the single Release description from the same manifest."""
+
+import json
+import os
+import sys
+from pathlib import Path
+
+from config import MIRRORS
+
+
+def image_table(manifest):
+    lines = ["| 构建目标 | 镜像 | 文件 | 登录账户 | 登录方式 | 文件大小 | 磁盘大小 |",
+             "| --- | --- | --- | --- | --- | --- | --- |"]
+    for image in manifest["images"]:
+        login = "SSH 密码登录" if image["kind"] == "ssh" else "虚拟机控制台"
+        lines.append(f"| {image['target']} | {image['kind']} | {image['filename']} | "
+                     f"{image['username']} | {login} | {image['size']} | {image['disk_gib']} GB |")
+    return "\n".join(lines)
+
+
+def release_notes(manifest, password):
+    settings = manifest["settings"]
+    return f"""## Debian 云镜像 OVA
+
+**构建配置：**
+- Debian 版本：**{settings['version']}**
+- Debian Build 号：**{manifest['source']['build']}**
+- vCPU：**{settings['vcpu']}**
+- 内存：**{settings['memory']}MB**
+- 磁盘大小：**{manifest['images'][0]['disk_gib']} GB**
+- 主机名：**{settings['hostname']}**
+- 软件源：**{MIRRORS[settings['mirror']][0]}**
+- 安装 open-vm-tools：**{str(settings['install_vm_tools']).lower()}**
+- 时区：**{settings['timezone']}**
+- 默认镜像：**非 SSH（控制台登录）**
+- 构建时间：**{manifest['build_time']}**
+
+{image_table(manifest)}
+
+**快速开始：**
+1. 从 Release 资产中下载 OVA 文件
+2. 导入 VMware 或兼容的虚拟化平台
+3. 开机并使用以下凭据登录：
+   - 默认非 SSH 镜像：通过虚拟机控制台登录，用户名 `{settings['username']}`
+   - SSH 镜像（如有）：等待 cloud-init 完成后执行 `ssh root@<虚拟机 IP>`
+   - 密码：`{password}`
+
+**Cloud-Init 支持：**
+- 自定义主机名配置
+- 默认配置普通用户，附加 SSH 镜像配置 root
+- 执行 user-data 脚本
+"""
+
+
+def summary(manifest, env):
+    text = f"## Debian {env['TARGET_VERSION']} OVA 构建结果\n\n- 状态：{env['BUILD_STATUS']}\n"
+    if manifest is None:
+        return text + "\n构建未完成，请查看失败步骤的错误信息；本次未发布镜像。\n"
+    settings = manifest["settings"]
+    text += (f"- 构建机型：{manifest['target_count']}\n"
+             f"- 软件源：{MIRRORS[settings['mirror']][0]}\n"
+             f"- 安装 open-vm-tools：{str(settings['install_vm_tools']).lower()}\n"
+             f"- 时区：{settings['timezone']}\n"
+             f"- 请求磁盘容量：{settings['disk']} GiB\n"
+             f"- 实际磁盘容量：{manifest['images'][0]['disk_gib']} GiB\n\n")
+    if env["BUILD_STATUS"] != "success":
+        text += "构建已完成，但发布未成功完成，请检查发布步骤。\n\n"
+    return text + image_table(manifest) + "\n"
+
+
+def main():
+    manifest_path = os.environ.get("BUILD_MANIFEST", "")
+    manifest = json.loads(Path(manifest_path).read_text()) if manifest_path else None
+    if sys.argv[1] == "release":
+        if not manifest or not manifest["images"]:
+            raise ValueError("没有可发布的镜像")
+        Path(sys.argv[2]).write_text(release_notes(manifest, os.environ["TARGET_PASSWORD"]))
+        for image in manifest["images"]:
+            filename = image["filename"]
+            if Path(filename).name != filename or not filename.endswith(".ova") or not Path(filename).is_file():
+                raise ValueError("发布资产不存在或文件名无效")
+            print(filename)
+    elif sys.argv[1] == "summary":
+        if os.environ.get("GITHUB_STEP_SUMMARY"):
+            with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as output:
+                output.write(summary(manifest, os.environ))
+    else:
+        raise ValueError("未知报告类型")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (ValueError, KeyError, OSError) as error:
+        sys.exit(f"::error::{error}")

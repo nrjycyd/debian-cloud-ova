@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Envelope xmlns="http://schemas.dmtf.org/ovf/envelope/1" xmlns:cim="http://schemas.dmtf.org/wbem/wscim/1/common" xmlns:ovf="http://schemas.dmtf.org/ovf/envelope/1" xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData" xmlns:vmw="http://www.vmware.com/schema/ovf" xmlns:vssd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_VirtualSystemSettingData" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <References>
+    <File ovf:href="${FILE_NAME}.${FILE_DEST_EXT}" ovf:id="file1" ovf:size="${FILE_DEST_SIZE}"/>
+    <File ovf:href="${ISO_FILE_NAME}" ovf:id="file2" ovf:size="${ISO_FILE_SIZE}"/>
+  </References>
+  <DiskSection>
+    <Info>Virtual disk information</Info>
+    <Disk ovf:capacity="${disk_size_bytes}" ovf:capacityAllocationUnits="byte" ovf:diskId="vmdisk1" ovf:fileRef="file1" ovf:format="http://www.vmware.com/interfaces/specifications/vmdk.html#streamOptimized" ovf:populatedSize="0"/>
+  </DiskSection>
+  <NetworkSection>
+    <Info>The list of logical networks</Info>
+    <Network ovf:name="VM Network">
+      <Description>The VM Network network</Description>
+    </Network>
+  </NetworkSection>
+  <VirtualSystem ovf:id="${FILE_NAME}-${CURRENT_DATE}" vmw:ovf.powerOn="false"> <Info>A virtual machine</Info>
+    <Name>${FILE_NAME}-${CURRENT_DATE}</Name>
+    <OperatingSystemSection ovf:id="${OVF_OS_ID}" vmw:osType="${OVF_OS_TYPE}">
+      <Info>The kind of installed guest operating system</Info>
+      <Description>Debian GNU/Linux ${DEBIAN_VERSION} (64-bit)</Description>
+    </OperatingSystemSection>
+    <VirtualHardwareSection>
+      <Info>Virtual hardware requirements</Info>
+      <System>
+        <vssd:ElementName>Virtual Hardware Family</vssd:ElementName>
+        <vssd:InstanceID>0</vssd:InstanceID>
+        <vssd:VirtualSystemIdentifier>${FILE_NAME}-${CURRENT_DATE}</vssd:VirtualSystemIdentifier>
+        <vssd:VirtualSystemType>${VIRTUAL_SYSTEM_TYPE}</vssd:VirtualSystemType>
+      </System>
+      <Item>
+        <rasd:AllocationUnits>hertz * 10^6</rasd:AllocationUnits>
+        <rasd:Description>Number of Virtual CPUs</rasd:Description>
+        <rasd:ElementName>${vcpu} virtual CPU(s)</rasd:ElementName>
+        <rasd:InstanceID>1</rasd:InstanceID>
+        <rasd:ResourceType>3</rasd:ResourceType>
+        <rasd:VirtualQuantity>${vcpu}</rasd:VirtualQuantity>
+      </Item>
+      <Item>
+        <rasd:AllocationUnits>byte * 2^20</rasd:AllocationUnits>
+        <rasd:Description>Memory Size</rasd:Description>
+        <rasd:ElementName>${memory}MB of memory</rasd:ElementName>
+        <rasd:InstanceID>2</rasd:InstanceID>
+        <rasd:ResourceType>4</rasd:ResourceType>
+        <rasd:VirtualQuantity>${memory}</rasd:VirtualQuantity>
+      </Item>
+      <Item>
+        <rasd:Address>0</rasd:Address>
+        <rasd:Description>SCSI Controller</rasd:Description>
+        <rasd:ElementName>SCSI Controller 0</rasd:ElementName>
+        <rasd:InstanceID>3</rasd:InstanceID>
+        <rasd:ResourceSubType>VirtualSCSI</rasd:ResourceSubType>
+        <rasd:ResourceType>6</rasd:ResourceType>
+      </Item>
+      <Item>
+        <rasd:AddressOnParent>0</rasd:AddressOnParent>
+        <rasd:ElementName>Hard Disk 1</rasd:ElementName>
+        <rasd:HostResource>ovf:/disk/vmdisk1</rasd:HostResource>
+        <rasd:InstanceID>10</rasd:InstanceID>
+        <rasd:Parent>3</rasd:Parent>
+        <rasd:ResourceType>17</rasd:ResourceType>
+      </Item>
+      <Item>
+        <rasd:Address>0</rasd:Address>
+        <rasd:Description>IDE Controller</rasd:Description>
+        <rasd:ElementName>IDE Controller 0</rasd:ElementName>
+        <rasd:InstanceID>5</rasd:InstanceID>
+        <rasd:ResourceType>5</rasd:ResourceType>
+      </Item>
+      <Item>
+        <rasd:AddressOnParent>0</rasd:AddressOnParent>
+        <rasd:AutomaticAllocation>false</rasd:AutomaticAllocation>
+        <rasd:ElementName>CD/DVD Drive 1 (ConfigDrive)</rasd:ElementName>
+        <rasd:HostResource>ovf:/file/file2</rasd:HostResource>
+        <rasd:InstanceID>11</rasd:InstanceID>
+        <rasd:Parent>5</rasd:Parent>
+        <rasd:ResourceType>15</rasd:ResourceType>
+      </Item>
+      <Item>
+        <rasd:AddressOnParent>7</rasd:AddressOnParent>
+        <rasd:AutomaticAllocation>true</rasd:AutomaticAllocation>
+        <rasd:Connection>VM Network</rasd:Connection>
+        <rasd:Description>VmxNet3 ethernet adapter</rasd:Description>
+        <rasd:ElementName>Ethernet 1</rasd:ElementName>
+        <rasd:InstanceID>12</rasd:InstanceID>
+        <rasd:ResourceSubType>VmxNet3</rasd:ResourceSubType>
+        <rasd:ResourceType>10</rasd:ResourceType>
+      </Item>
+    </VirtualHardwareSection>
+  </VirtualSystem>
+</Envelope>
