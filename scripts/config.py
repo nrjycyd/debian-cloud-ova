@@ -56,7 +56,7 @@ def validate(values, *, image=False):
     if image and result["enable_ssh"]:
         result["username"] = "root"
     elif result["username"] == "root":
-        raise ValueError("非 SSH 镜像请填写普通用户名，SSH 镜像固定使用 root")
+        raise ValueError("console 镜像请填写普通用户名，SSH 镜像固定使用 root")
     if not re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", result["username"]):
         raise ValueError("用户名不合法（小写字母或下划线开头，最多 32 字符）")
     return result
