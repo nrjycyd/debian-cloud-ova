@@ -512,4 +512,5 @@ echo ""
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     printf 'ACTUAL_DISK_GIB=%s\nACTUAL_DISK_BYTES=%s\n' "$ACTUAL_DISK_GIB" "$TARGET_BYTES" >> "$GITHUB_OUTPUT"
     printf 'LOGIN_USERNAME=%s\nSSH_ENABLED=%s\n' "$username" "$enable_ssh" >> "$GITHUB_OUTPUT"
+    printf 'OVA_FILE_NAME=%s\nOVA_FILE_SIZE=%s\n' "${OUTPUT_NAME}.ova" "$OVA_SIZE" >> "$GITHUB_OUTPUT"
 fi
