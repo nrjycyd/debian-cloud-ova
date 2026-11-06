@@ -19,6 +19,8 @@ username="debian"
 password="123456"
 enable_ssh="false"
 apt_mirror="official"
+install_vm_tools="true"
+guest_timezone="UTC"
 
 # 只读取顶层 virtual-size，避免匹配嵌套镜像信息中的同名字段。
 get_virtual_size() {
@@ -42,7 +44,7 @@ print(size)
 }
 
 # 解析工作流传入的内部构建参数
-while getopts ":d:c:m:s:H:u:p:S:M:" opt; do
+while getopts ":d:c:m:s:H:u:p:S:M:V:T:" opt; do
     case "$opt" in
         d) debver="$OPTARG" ;;
         c) vcpu="$OPTARG" ;;
@@ -53,6 +55,8 @@ while getopts ":d:c:m:s:H:u:p:S:M:" opt; do
         p) password="$OPTARG" ;;
         S) enable_ssh="$OPTARG" ;;
         M) apt_mirror="$OPTARG" ;;
+        V) install_vm_tools="$OPTARG" ;;
+        T) guest_timezone="$OPTARG" ;;
         :) echo "[ERROR] Option -$OPTARG requires an argument" >&2; exit 1 ;;
         \?) echo "[ERROR] Invalid option -$OPTARG" >&2; exit 1 ;;
     esac
@@ -84,6 +88,14 @@ fi
 disk_size_gb=$((10#$disk_size_gb))
 
 # Validate username/password characters（防换行符注入 chpasswd / YAML 破坏）
+case "$install_vm_tools" in
+    true|false) ;;
+    *) echo "[ERROR] VM tools option must be true or false" >&2; exit 1 ;;
+esac
+case "$guest_timezone" in
+    UTC|Asia/Shanghai|Asia/Hong_Kong|Asia/Singapore|Asia/Tokyo|Europe/London|Europe/Berlin|America/New_York) ;;
+    *) echo "[ERROR] Unsupported timezone" >&2; exit 1 ;;
+esac
 case "$apt_mirror" in
     official) apt_mirror_uri="" ;;
     tuna) apt_mirror_uri="https://mirrors.tuna.tsinghua.edu.cn/debian" ;;
@@ -198,6 +210,8 @@ echo "[INFO] Hostname: $hostname"
 echo "[INFO] Username: $username"
 echo "[INFO] SSH Enabled: $enable_ssh"
 echo "[INFO] APT Mirror: $apt_mirror"
+echo "[INFO] Install open-vm-tools: $install_vm_tools"
+echo "[INFO] Timezone: $guest_timezone"
 echo ""
 
 # --- 区域 1: ConfigDrive ISO 生成 (NoCloud 模式) ---
@@ -226,6 +240,7 @@ cat >> "$CLOUD_CONFIG_FILE" << EOFCONFIG
 
 ssh_pwauth: $enable_ssh
 disable_root: $([[ "$enable_ssh" == "true" ]] && echo false || echo true)
+timezone: $guest_timezone
 
 chpasswd:
   list: |
@@ -234,9 +249,14 @@ chpasswd:
 
 packages:
   - cloud-init
-  - open-vm-tools
   - openssh-server
+  - tzdata
 EOFCONFIG
+if [[ "$install_vm_tools" == "true" ]]; then
+    cat >> "$CLOUD_CONFIG_FILE" << 'EOFCONFIG'
+  - open-vm-tools
+EOFCONFIG
+fi
 
 # 保留已有源的格式、套件、组件和签名配置，阻止后续 APT 模块重新生成源。
 if [[ "$apt_mirror" != "official" ]]; then
@@ -343,9 +363,13 @@ cat >> "$CLOUD_CONFIG_FILE" << EOFCONFIG
 EOFCONFIG
 cat >> "$CLOUD_CONFIG_FILE" << 'EOFCONFIG'
   - [ systemctl, daemon-reload ]
+EOFCONFIG
+if [[ "$install_vm_tools" == "true" ]]; then
+    cat >> "$CLOUD_CONFIG_FILE" << 'EOFCONFIG'
   - [ systemctl, enable, open-vm-tools ]
   - [ systemctl, start, open-vm-tools ]
 EOFCONFIG
+fi
 
 # --- User-Data 结束 ---
 
@@ -565,6 +589,8 @@ echo "[INFO] Hostname: ${hostname}"
 echo "[INFO] Default User: ${username}"
 echo "[INFO] SSH Enabled: ${enable_ssh}"
 echo "[INFO] APT Mirror: ${apt_mirror}"
+echo "[INFO] Install open-vm-tools: $install_vm_tools"
+echo "[INFO] Timezone: $guest_timezone"
 echo "[INFO] Config Method: NoCloud/ConfigDrive (ISO)"
 echo "[INFO] Auto Start: Disabled"
 echo ""

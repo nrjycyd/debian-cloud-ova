@@ -41,7 +41,9 @@
     | `主机名` | 虚拟机主机名 | `debian-cloud` | 字母/数字/连字符，≤ 63 字符 |
     | `启用 SSH` | 额外构建 SSH 镜像 | 不勾选 | 默认必建非 SSH 镜像；勾选后同时生成 SSH 镜像 |
     | `用户名` | 非 SSH 镜像的控制台用户 | `debian` | 必须为普通用户名；附加 SSH 镜像固定使用 root |
-    | `使用中国软件源` | 首次启动时配置 APT | `官方源` | 官方源 / 清华大学 / 中国科学技术大学 / 阿里云 / 华为云；两种镜像采用相同设置 |
+    | `更改软件源` | 首次启动时配置 APT | `官方源` | 官方源 / 清华大学 / 中国科学技术大学 / 阿里云 / 华为云；两种镜像采用相同设置 |
+    | `安装 open-vm-tools` | VMware 工具服务 | 勾选 | 首次启动时安装并启用；不勾选则不主动安装或启动，不卸载镜像已有版本 |
+    | `时区` | 虚拟机系统时区 | `UTC` | 上海、香港、新加坡、东京、伦敦、柏林、纽约或 UTC；两种镜像共用 |
     | `登录密码` | 两种镜像共用的登录密码 | `123456` | 非 SSH 镜像用于普通用户，SSH 镜像用于 root；仅允许字母/数字及 `@#%+=.,_-`（构建日志中可见） |
 
 5. 构建完成后，在 **Releases** 页面下载生成的 `.ova` 文件。
@@ -123,9 +125,9 @@ sudo chage -d 0 debian
 | 阿里云 | `https://mirrors.aliyun.com/debian` |
 | 华为云 | `https://repo.huaweicloud.com/debian` |
 
-### 2. 安装虚拟机工具集（非必须）
+### 2. 虚拟机工具集
 
-Debian Cloud 镜像若安装时未联网，工具集可能安装失败，建议手动安装：
+面板中的“安装 open-vm-tools”默认勾选，首次启动时安装并启用。取消勾选后不主动安装或启动工具，也不卸载镜像可能已有的版本。未联网导致安装失败时，可在虚拟机中手动安装：
 
 ```bash
 sudo apt install open-vm-tools
@@ -133,7 +135,7 @@ sudo apt install open-vm-tools
 
 ### 3. 修改时区（Timezone）
 
-默认时区为 UTC。若在中国大陆地区使用，建议修改为 `Asia/Shanghai` (CST)：
+首次启动按面板所选时区设置，默认 `UTC`。可选 `Asia/Shanghai`、`Asia/Hong_Kong`、`Asia/Singapore`、`Asia/Tokyo`、`Europe/London`、`Europe/Berlin` 和 `America/New_York`，也可在部署后手动修改：
 
 ```bash
 sudo dpkg-reconfigure tzdata

@@ -65,8 +65,8 @@ on:
         default: false
         type: boolean
       apt_mirror:
-        description: '使用中国软件源'
-        required: true
+        description: '更改软件源'
+        required: false
         default: '官方源'
         type: choice
         options:
@@ -75,6 +75,25 @@ on:
           - '中国科学技术大学'
           - '阿里云'
           - '华为云'
+      install_vm_tools:
+        description: '安装 open-vm-tools'
+        required: false
+        default: true
+        type: boolean
+      timezone:
+        description: '时区'
+        required: false
+        default: 'UTC'
+        type: choice
+        options:
+          - 'UTC'
+          - 'Asia/Shanghai'
+          - 'Asia/Hong_Kong'
+          - 'Asia/Singapore'
+          - 'Asia/Tokyo'
+          - 'Europe/London'
+          - 'Europe/Berlin'
+          - 'America/New_York'
       username:
         description: '用户名（非 SSH 镜像）'
         required: false
@@ -106,6 +125,8 @@ jobs:
       TARGET_PASSWORD: ${{ github.event.inputs.password }}
       TARGET_ENABLE_SSH: ${{ inputs.enable_ssh && 'true' || 'false' }}
       TARGET_APT_MIRROR: ${{ inputs.apt_mirror }}
+      TARGET_INSTALL_VM_TOOLS: ${{ inputs.install_vm_tools && 'true' || 'false' }}
+      TARGET_TIMEZONE: ${{ inputs.timezone }}
       # RELEASE_TAG: ${{ github.event.inputs.release_tag }}
 
     steps:
@@ -125,6 +146,14 @@ jobs:
           chmod +x ./debian-ova-creator.sh
 
           # 参数校验（上限防止生成非法 OVF，hostname/密码防 cloud-init 配置破坏）
+          case "$TARGET_INSTALL_VM_TOOLS" in
+            true|false) ;;
+            *) echo "[ERROR] open-vm-tools 开关必须为 true 或 false"; exit 1 ;;
+          esac
+          case "$TARGET_TIMEZONE" in
+            UTC|Asia/Shanghai|Asia/Hong_Kong|Asia/Singapore|Asia/Tokyo|Europe/London|Europe/Berlin|America/New_York) ;;
+            *) echo "[ERROR] 不支持的时区"; exit 1 ;;
+          esac
           if ! [[ "${TARGET_VCPU}" =~ ^[0-9]+$ ]] || [ "${TARGET_VCPU}" -lt 1 ] || [ "${TARGET_VCPU}" -gt 64 ]; then
               echo "[ERROR] vCPU 必须在 1-64 之间"; exit 1
           fi
@@ -194,6 +223,8 @@ jobs:
           echo "[INFO] 登录账户: $LOGIN_USERNAME"
           echo "[INFO] 附加 SSH 镜像: $TARGET_ENABLE_SSH"
           echo "[INFO] 软件源: $APT_SOURCE_LABEL"
+          echo "[INFO] 安装 open-vm-tools: $TARGET_INSTALL_VM_TOOLS"
+          echo "[INFO] 时区: $TARGET_TIMEZONE"
 
           # Guest OS 标识：由组合中的 DGNU 直接映射（组合已保证 ≤ 机型可识别上限）
           case "$DGNU_NUM" in
@@ -217,7 +248,9 @@ jobs:
               -u "$TARGET_USERNAME" \
               -p "$TARGET_PASSWORD" \
               -S "$mode" \
-              -M "$APT_MIRROR"
+              -M "$APT_MIRROR" \
+              -V "$TARGET_INSTALL_VM_TOOLS" \
+              -T "$TARGET_TIMEZONE"
           }
           read_output() {
             python3 - "$1" "$2" <<'PY'
@@ -315,6 +348,8 @@ jobs:
           - 磁盘大小：**${ACTUAL_DISK_GIB} GB**
           - 主机名：**${TARGET_HOSTNAME}**
           - 软件源：**${APT_SOURCE_LABEL}**
+          - 安装 open-vm-tools：**${TARGET_INSTALL_VM_TOOLS}**
+          - 时区：**${TARGET_TIMEZONE}**
           - 默认镜像：**非 SSH（控制台登录）**
           - 构建时间：**${BUILD_TIME}**
 
@@ -381,6 +416,8 @@ jobs:
           echo "[INFO] ESXi 机型: ${TARGET_BUILD}"
           echo "[INFO] 主机名: ${TARGET_HOSTNAME}"
           echo "[INFO] 软件源: ${APT_SOURCE_LABEL:-未生成}"
+          echo "[INFO] 安装 open-vm-tools: $TARGET_INSTALL_VM_TOOLS"
+          echo "[INFO] 时区: $TARGET_TIMEZONE"
           echo "[INFO] 登录账户: ${LOGIN_USERNAME:-未生成}"
           echo "[INFO] 附加 SSH 镜像: ${SSH_ENABLED:-未生成}"
           echo "[INFO] 标签: ${FINAL_TAG}"
@@ -398,6 +435,8 @@ jobs:
               printf '## Debian %s OVA 构建结果\n\n' "$TARGET_VERSION"
               printf -- '- 状态：%s\n' "$BUILD_STATUS"
               printf -- '- 软件源：%s\n' "${APT_SOURCE_LABEL:-未生成}"
+              printf -- '- 安装 open-vm-tools：%s\n' "$TARGET_INSTALL_VM_TOOLS"
+              printf -- '- 时区：%s\n' "$TARGET_TIMEZONE"
               printf -- '- 登录账户：%s\n' "${LOGIN_USERNAME:-未生成}"
               printf -- '- 默认非 SSH 镜像：%s\n' "${OVA_FILE_NAME:-未生成}"
               printf -- '- 附加 SSH 镜像：%s\n' "${SSH_FILE_NAME:-无}"
