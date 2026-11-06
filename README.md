@@ -62,8 +62,6 @@
 | `-console.ova` | 指定的普通用户 | 虚拟机控制台，SSH 关闭 |
 | `-ssh.ova` | `root` | SSH 密码登录 |
 
-每个机型默认生成 console 镜像；勾选“启用 SSH”后额外生成 ssh 镜像，最多八份。两种镜像共用面板密码，SSH 镜像启用 `PermitRootLogin yes`、`PasswordAuthentication yes`。
-
 首次启动需联网。用 `cloud-init status --long` 确认初始化完成后，再执行 `ssh root@<虚拟机 IP>`；此前已连接的客户端请断开重连。初始化失败时查看 `/var/log/cloud-init-output.log`。
 
 ---
