@@ -24,7 +24,7 @@
 
 ## 快速开始（GitHub Actions）
 
-这是**最推荐的使用方式**，无需本地环境。
+本项目仅支持通过 **GitHub Actions** 构建，不再提供本地构建入口。
 
 1. 进入项目的 **Actions** 页面。
 2. 选择 **「构建并发布 Debian OVA」** 工作流。
@@ -45,7 +45,7 @@
 
 5. 构建完成后，在 **Releases** 页面下载生成的 `.ova` 文件。
 
-请求容量不足时会在日志中提示自动调整；构建摘要分别列出请求容量与实际容量，Release 说明仅列出实际磁盘大小。本地重复构建若复用了已经扩容的源镜像，会保留该镜像的现有容量，不会缩小磁盘。
+请求容量不足时会在日志中提示自动调整；构建摘要分别列出请求容量与实际容量，Release 说明仅列出实际磁盘大小。
 
 ### SSH 与登录方式
 
@@ -54,17 +54,6 @@
 - 等待首次启动的 cloud-init 完成后，再使用 `ssh root@<虚拟机 IP>` 登录；需有可用网络和可达的 22 端口。配置失败可在控制台查看 `cloud-init status --long` 和 `/var/log/cloud-init-output.log`。
 - 镜像文件名分别以 `-ssh.ova`、`-console.ova` 结尾，避免两种模式的资产相互覆盖。已有 Release 保留原说明，并追加本次镜像的账户和 SSH 状态。
 
-### 本地构建
-
-本地需安装 `wget`、`qemu-utils`、`cloud-image-utils` 和 `python3`。SSH 默认关闭，可通过 `-S true` 开启：
-
-```bash
-# 普通用户通过控制台登录
-bash debian-ova-creator.sh -d 13 -s 4 -u debian -p 123456
-
-# 仅配置 root，并启用 SSH 密码登录（-u 参数被忽略）
-bash debian-ova-creator.sh -d 13 -s 4 -S true -p 123456
-```
 
 ---
 

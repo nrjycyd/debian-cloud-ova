@@ -2,6 +2,12 @@
 
 set -e
 
+# 此脚本仅作为 GitHub Actions 工作流的内部构建步骤使用。
+if [[ "${GITHUB_ACTIONS:-}" != "true" ]]; then
+    echo "[ERROR] 不再支持本地构建，请在 GitHub Actions 页面运行构建工作流。" >&2
+    exit 1
+fi
+
 # 默认参数
 debver=""
 debarch="amd64"
@@ -12,35 +18,6 @@ hostname="debian-cloud"
 username="debian"
 password="123456"
 enable_ssh="false"
-
-show_help() {
-    cat << 'EOF'
-Usage: debian-ova-creator.sh [options]
-
-Debian Version Options:
-  -d <version>         Debian version (REQUIRED)
-                       Supported: 11, 12, 13, bullseye, bookworm, trixie, sid
-
-Hardware Options:
-  -c <vcpu>            Number of vCPUs (default: 2)
-  -m <memory>          Memory in MB (default: 1024)
-  -s <disk_gb>         Disk size in GB (default: 10)
-                       Uses the source image size if the requested size is smaller
-
-Account Options:
-  -H <hostname>        Hostname (default: debian-cloud)
-  -u <username>        Console username when SSH is disabled (default: debian)
-  -p <password>        Login password; used for root when SSH is enabled (default: 123456)
-  -S <true|false>      Enable SSH with root password login (default: false)
-
-Other Options:
-  -h                   Show this help message
-
-Examples:
-  debian-ova-creator.sh -d bookworm
-  debian-ova-creator.sh -d 12 -c 4 -m 2048 -s 20
-EOF
-}
 
 # 只读取顶层 virtual-size，避免匹配嵌套镜像信息中的同名字段。
 get_virtual_size() {
@@ -63,8 +40,8 @@ print(size)
 '
 }
 
-# Parse command line arguments
-while getopts ":d:c:m:s:H:u:p:S:h" opt; do
+# 解析工作流传入的内部构建参数
+while getopts ":d:c:m:s:H:u:p:S:" opt; do
     case "$opt" in
         d) debver="$OPTARG" ;;
         c) vcpu="$OPTARG" ;;
@@ -74,7 +51,6 @@ while getopts ":d:c:m:s:H:u:p:S:h" opt; do
         u) username="$OPTARG" ;;
         p) password="$OPTARG" ;;
         S) enable_ssh="$OPTARG" ;;
-        h) show_help; exit 0 ;;
         :) echo "[ERROR] Option -$OPTARG requires an argument" >&2; exit 1 ;;
         \?) echo "[ERROR] Invalid option -$OPTARG" >&2; exit 1 ;;
     esac
@@ -83,7 +59,6 @@ done
 # Validate required parameters
 if [[ -z "$debver" ]]; then
     echo "[ERROR] Debian version is required (-d)" >&2
-    show_help
     exit 1
 fi
 
@@ -111,7 +86,7 @@ case "$enable_ssh" in
     true) username="root" ;;
     false)
         if [[ "$username" == "root" ]]; then
-            echo "[ERROR] SSH 关闭时请使用普通用户名；root 登录请选择 -S true。" >&2
+            echo "[ERROR] SSH 关闭时请使用普通用户名；root 登录请在构建面板启用 SSH。" >&2
             exit 1
         fi
         ;;
@@ -364,7 +339,7 @@ if [ "$CURRENT_BYTES" -lt "$TARGET_BYTES" ]; then
     echo "[INFO] 磁盘已扩容到 ${disk_size_gb}G（开机后 cloud-init growpart 自动扩展根分区）"
 fi
 
-# Convert to VMDK format（本地重跑换 -s 时旧 vmdk 虚拟大小与目标不符，删除重转）
+# Convert to VMDK format（缓存 VMDK 容量与目标不符时重新转换）
 VMDK_BYTES=""
 if [ -f "${FILE_NAME}.${FILE_DEST_EXT}" ]; then
     VMDK_BYTES=$(get_virtual_size "${FILE_NAME}.${FILE_DEST_EXT}") || exit 1
