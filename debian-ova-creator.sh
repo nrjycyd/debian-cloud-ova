@@ -283,15 +283,11 @@ EOFCONFIG
     import sys
 
     apt_dir = Path("/etc/apt")
-    paths = [apt_dir / "sources.list"]
-    for directory, patterns in (("sources.list.d", ("*.list", "*.sources")),
-                                ("mirrors", ("*.list",))):
-        for pattern in patterns:
-            paths.extend(sorted((apt_dir / directory).glob(pattern)))
+    paths = sorted((apt_dir / "mirrors").glob("*.list"))
     primary = re.compile(r"https?://(?:deb\.debian\.org|httpredir\.debian\.org|ftp\.debian\.org|ftp\.[a-z]{2}\.debian\.org)/debian(?=[/\s]|$)")
     security = re.compile(r"https?://(?:deb\.debian\.org|security\.debian\.org)/debian-security(?=[/\s]|$)")
     for path in paths:
-        if not path.is_file():
+        if not path.is_file() or path.is_symlink():
             continue
         original = path.read_text(encoding="utf-8")
         updated = security.sub("https://security.debian.org/debian-security", original)
