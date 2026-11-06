@@ -63,8 +63,15 @@ BUILD_TEMP=$(mktemp -d)
 CLOUD_CONFIG_FILE="$BUILD_TEMP/user-data"
 META_CONFIG_FILE="$BUILD_TEMP/meta-data"
 cleanup() {
-    rm -f -- "$CLOUD_CONFIG_FILE" "$META_CONFIG_FILE" "$ISO_FILE_NAME" "${FILE_NAME}.qcow2.part"
-    rmdir -- "$BUILD_TEMP"
+    local status=$?
+    trap - EXIT
+    if ! rm -f -- "$CLOUD_CONFIG_FILE" "$META_CONFIG_FILE" "$ISO_FILE_NAME" "${FILE_NAME}.qcow2.part"; then
+        echo "[WARN] 无法完全清理临时凭据或镜像文件，请检查：$BUILD_TEMP" >&2
+    fi
+    if ! rmdir -- "$BUILD_TEMP"; then
+        echo "[WARN] 临时目录仍有残留，请检查：$BUILD_TEMP" >&2
+    fi
+    exit "$status"
 }
 trap cleanup EXIT
 
@@ -110,6 +117,14 @@ prepare_source_copy() {
     fi
 }
 
+run_guestfish() {
+    local command=(env LIBGUESTFS_BACKEND=direct guestfish)
+    if [[ "$EUID" -ne 0 ]]; then
+        command=(sudo -n "${command[@]}")
+    fi
+    "${command[@]}" "$@"
+}
+
 prepare_disk() {
     CURRENT_BYTES=$(get_virtual_size "${FILE_NAME}.${FILE_ORIG_EXT}") || exit 1
     TARGET_BYTES=$((disk_size_gb * 1073741824))
@@ -132,12 +147,7 @@ prepare_disk() {
     SOURCE_HASH=$(sha256sum "${FILE_NAME}.${FILE_ORIG_EXT}" | cut -d " " -f1)
     if [[ ! -f "$PREPARED_FILE" ]] || [[ "$(< "$PREPARED_FILE")" != "growroot-disabled-v1:$SOURCE_HASH" ]]; then
         echo "[INFO] Preparing cloud-init disk growth..."
-        # GitHub runner 默认非 root；guestfish 需要读取宿主内核并访问虚拟化设备。
-        GUESTFISH_COMMAND=(env LIBGUESTFS_BACKEND=direct guestfish)
-        if [[ "$EUID" -ne 0 ]]; then
-            GUESTFISH_COMMAND=(sudo -n "${GUESTFISH_COMMAND[@]}")
-        fi
-        if ! PREPARE_RESULT=$("${GUESTFISH_COMMAND[@]}" --rw --format=qcow2 \
+        if ! PREPARE_RESULT=$(run_guestfish --rw --format=qcow2 \
             -a "${FILE_NAME}.${FILE_ORIG_EXT}" -i <<'EOFGUESTFS'
 touch /etc/growroot-disabled
 sync
@@ -185,6 +195,30 @@ convert_disk() {
     FILE_DEST_SIZE=$(wc -c "${FILE_NAME}.${FILE_DEST_EXT}" | cut -d " " -f1)
 }
 
+verify_vmdk() {
+    local stamp="${FILE_NAME}.growroot-verified.sha256" result
+    FILE_DEST_SUM=$(sha256sum "${FILE_NAME}.${FILE_DEST_EXT}" | cut -d " " -f1)
+    if [[ -f "$stamp" ]] && [[ "$(< "$stamp")" == "growroot-marker-v1:$FILE_DEST_SUM" ]]; then
+        return
+    fi
+    # Reopen the converted disk in a separate read-only session. Do not infer
+    # filesystem state from a successful write session or disk capacity alone.
+    if ! result=$(run_guestfish --ro --format=vmdk -a "${FILE_NAME}.${FILE_DEST_EXT}" -i <<'EOFGUESTFS'
+is-file /etc/growroot-disabled
+filesize /etc/growroot-disabled
+EOFGUESTFS
+    ); then
+        echo '[ERROR] 无法只读复核 VMDK 中的 growroot 标记，停止打包。' >&2
+        exit 1
+    fi
+    if [[ "$result" != $'true\n0' ]]; then
+        echo '[ERROR] VMDK 的 growroot 标记不存在或不是空文件，停止打包。' >&2
+        exit 1
+    fi
+    printf 'growroot-marker-v1:%s\n' "$FILE_DEST_SUM" > "$stamp"
+    echo '[INFO] VMDK growroot 标记已独立只读复核'
+}
+
 render_ovf() {
     export FILE_NAME FILE_DEST_EXT FILE_DEST_SIZE ISO_FILE_NAME ISO_FILE_SIZE disk_size_bytes
     export CURRENT_DATE DEBIAN_VERSION vcpu memory
@@ -192,7 +226,6 @@ render_ovf() {
 }
 
 package_ova() {
-    FILE_DEST_SUM=$(sha256sum "${FILE_NAME}.${FILE_DEST_EXT}" | cut -d " " -f1)
     FILE_OVF_SUM=$(sha256sum "${FILE_NAME}.ovf" | cut -d " " -f1)
     ISO_FILE_SUM=$(sha256sum "${ISO_FILE_NAME}" | cut -d " " -f1)
 
@@ -227,6 +260,7 @@ OUTPUT_NAME="debian${DEBIAN_VERSION}-generic-cloud-${ESXI_TAG}-vmx${VIRTUAL_SYST
 prepare_source_copy
 prepare_disk
 convert_disk
+verify_vmdk
 render_ovf
 package_ova
 echo "[INFO] 已生成 ${OUTPUT_NAME}.ova（$OVA_SIZE），磁盘 ${ACTUAL_DISK_GIB} GB"

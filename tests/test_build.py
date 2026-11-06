@@ -10,11 +10,11 @@ from unittest.mock import patch
 
 import yaml
 
-from support import ROOT, build_fixture, fake_download, source_info
+from tests.support import ROOT, build_fixture, fake_download, source_info
 import build
 from config import catalog
 from report import release_notes, summary
-from test_config import environment
+from tests.test_config import environment
 
 
 class BuildTests(unittest.TestCase):
@@ -53,6 +53,9 @@ class BuildTests(unittest.TestCase):
                     self.check_images(manifest, 3 * 1073741824)
                     self.assertEqual((work / "guestfish-calls").read_text().splitlines(), ["prepare"])
                     self.assertEqual((work / "convert-calls").read_text().splitlines(), ["convert"])
+                    self.assertEqual((work / "verify-calls").read_text().splitlines(), ["verify"])
+                    if os.geteuid() != 0:
+                        self.assertEqual((work / "sudo-calls").read_text().splitlines(), ["sudo", "sudo"])
                     self.assertEqual((work / "debian-source.qcow2").read_bytes(), b"3221225472\n")
                     self.assertFalse(list(work.glob("tmp*/user-data")))
                     notes = release_notes(manifest, env["TARGET_PASSWORD"])
@@ -132,4 +135,47 @@ class BuildTests(unittest.TestCase):
                                      str(ROOT / "debian-ova-creator.sh"), "-d", "12"],
                                     env=env, text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual((work / "sudo-calls").read_text().splitlines(), ["sudo"])
+            self.assertEqual((work / "sudo-calls").read_text().splitlines(), ["sudo", "sudo"])
+
+    def test_readonly_verification_failure_stops_packaging(self):
+        for failure in ("fail", "missing", "nonempty"):
+            with self.subTest(failure=failure), build_fixture() as (work, env):
+                env.update(environment(), MOCK_VERIFY=failure)
+                with self.assertRaises(subprocess.CalledProcessError):
+                    self.batch(env)
+                self.assertFalse(list(work.glob("*.ova")))
+                self.assertFalse((work / "outputs").exists())
+
+    def test_changed_vmdk_invalidates_readonly_verification_cache(self):
+        with build_fixture() as (work, env):
+            env.update(environment(), TARGET_ENABLE_SSH="false", TARGET_BUILD_2="不构建", TARGET_BUILD_3="", TARGET_BUILD_4="")
+            self.batch(env)
+            with next(work.glob("*.vmdk")).open("ab") as output:
+                output.write(b"changed disk bytes\n")
+            self.batch(env)
+            self.assertEqual(len((work / "verify-calls").read_text().splitlines()), 2)
+            self.assertEqual(len((work / "convert-calls").read_text().splitlines()), 1)
+
+    def test_cleanup_preserves_success_and_failure_status(self):
+        for failed in (False, True):
+            with self.subTest(failed=failed), build_fixture() as (work, env):
+                env.update(environment(), TARGET_BUILD_2="不构建", TARGET_BUILD_3="", TARGET_BUILD_4="",
+                           TARGET_ENABLE_SSH="false", MOCK_TEMP_RESIDUE="true")
+                if failed:
+                    env["MOCK_GUESTFISH"] = "fail"
+                    with self.assertRaises(subprocess.CalledProcessError) as error:
+                        self.batch(env)
+                    self.assertEqual(error.exception.returncode, 1)
+                else:
+                    self.assertEqual(len(self.batch(env)["images"]), 1)
+                self.assertTrue(list(work.glob("tmp*/residue")))
+                self.assertFalse(list(work.glob("tmp*/user-data")))
+                self.assertFalse(list(work.glob("tmp*/meta-data")))
+
+    def test_test_branch_outputs_isolated_release(self):
+        with build_fixture() as (work, env):
+            env.update(environment(), GITHUB_REF="refs/heads/test", TARGET_ENABLE_SSH="false",
+                       TARGET_BUILD_2="不构建", TARGET_BUILD_3="", TARGET_BUILD_4="")
+            manifest = self.batch(env)
+            self.assertEqual(manifest["release"], {"tag": "test-debian13-20261106-1234", "prerelease": True})
+            self.assertIn("FINAL_TAG=test-debian13-20261106-1234", (work / "outputs").read_text())

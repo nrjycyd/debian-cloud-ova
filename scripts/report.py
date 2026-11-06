@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from config import MIRRORS
+from release import validate as validate_release
 
 
 def image_table(manifest):
@@ -20,9 +21,10 @@ def image_table(manifest):
 
 def release_notes(manifest, password):
     settings = manifest["settings"]
+    notice = "> 测试分支构建，作为预发布提供。\n\n" if manifest["release"]["prerelease"] else ""
     return f"""## Debian 云镜像 OVA
 
-**构建配置：**
+{notice}**构建配置：**
 - Debian 版本：**{settings['version']}**
 - Debian Build 号：**{manifest['source']['build']}**
 - vCPU：**{settings['vcpu']}**
@@ -58,6 +60,7 @@ def summary(manifest, env):
         return text + "\n构建未完成，请查看失败步骤的错误信息；本次未发布镜像。\n"
     settings = manifest["settings"]
     text += (f"- 构建机型：{manifest['target_count']}\n"
+             f"- 发布标签：{manifest['release']['tag']}\n"
              f"- 软件源：{MIRRORS[settings['mirror']][0]}\n"
              f"- 安装 open-vm-tools：{str(settings['install_vm_tools']).lower()}\n"
              f"- 时区：{settings['timezone']}\n"
@@ -71,9 +74,17 @@ def summary(manifest, env):
 def main():
     manifest_path = os.environ.get("BUILD_MANIFEST", "")
     manifest = json.loads(Path(manifest_path).read_text()) if manifest_path else None
-    if sys.argv[1] == "release":
+    if sys.argv[1] in ("release", "release-options"):
         if not manifest or not manifest["images"]:
             raise ValueError("没有可发布的镜像")
+        release = validate_release(manifest, os.environ)
+        if sys.argv[1] == "release-options":
+            prefix = "[test] " if release["prerelease"] else ""
+            print(f"{prefix}Debian {manifest['settings']['version']} OVA - {release['tag']}")
+            print("--prerelease" if release["prerelease"] else "--prerelease=false")
+            if release["prerelease"]:
+                print("--latest=false")
+            return
         Path(sys.argv[2]).write_text(release_notes(manifest, os.environ["TARGET_PASSWORD"]))
         for image in manifest["images"]:
             filename = image["filename"]

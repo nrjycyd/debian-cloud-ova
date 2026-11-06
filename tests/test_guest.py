@@ -5,12 +5,14 @@ import os
 import subprocess
 import tempfile
 import unittest
+import contextlib
+import io
 from pathlib import Path
 
-from support import ROOT, source_info
+from tests.support import ROOT, source_info
 from config import MIRRORS, catalog, from_environment, validate
 from render import cloud_config
-from test_config import environment
+from tests.test_config import environment
 
 from cloudinit import util
 from cloudinit.config.schema import validate_cloudconfig_schema
@@ -98,3 +100,55 @@ class GuestTests(unittest.TestCase):
                 self.assertEqual((apt / "ova-source-backups/mirrors/debian.list").read_bytes(), original)
                 # Restore to test the next mirror independently, preserving the first backup.
                 ordinary.write_bytes(original)
+
+    def test_console_mask_is_not_replayed_on_second_boot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            # Use the installed cloud-init-per implementation, relocating only
+            # state and the uid command so no host cloud-init state is touched.
+            per_source = Path("/usr/bin/cloud-init-per").read_text()
+            self.assertIn("/var/lib/cloud", per_source)
+            executable = root / "cloud-init-per"
+            executable.write_text(per_source.replace("/var/lib/cloud", str(root / "cloud")))
+            executable.chmod(0o755)
+            for name, content in {
+                "id": "#!/bin/sh\nprintf '0\\n'\n",
+                "systemctl": '#!/bin/sh\nprintf "masked\\n" > "$STATE"\necho mask >> "$CALLS"\n',
+            }.items():
+                path = root / name
+                path.write_text(content)
+                path.chmod(0o755)
+            settings = from_environment(environment())
+            settings["enable_ssh"] = False
+            config = cloud_config(settings, {}, catalog()[3], {})
+            self.assertEqual(config["bootcmd"][0][:3], ["cloud-init-per", "instance", "ova-disable-ssh"])
+            script = util.shellify(config["bootcmd"])
+            env = dict(os.environ, PATH=str(root) + ":" + os.environ["PATH"],
+                       STATE=str(root / "state"), CALLS=str(root / "calls"))
+            subprocess.run(["sh"], input=script, text=True, env=env, check=True)
+            self.assertEqual((root / "state").read_text().strip(), "masked")
+            (root / "state").write_text("enabled manually\n")
+            subprocess.run(["sh"], input=script, text=True, env=env, check=True)
+            self.assertEqual((root / "state").read_text().strip(), "enabled manually")
+            self.assertEqual((root / "calls").read_text().splitlines(), ["mask"])
+
+    def test_mirror_no_match_warns_but_idempotency_is_success(self):
+        spec = importlib.util.spec_from_file_location("apt_mirrors", ROOT / "guest/apt-mirrors.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as directory:
+            apt = Path(directory)
+            (apt / "mirrors").mkdir()
+            path = apt / "mirrors/debian.list"
+            path.write_text("https://private.example/debian\n")
+            mirror = MIRRORS["tuna"][1]
+            errors = io.StringIO()
+            with contextlib.redirect_stderr(errors):
+                self.assertEqual(module.configure_mirrors(apt, mirror), 0)
+            self.assertIn("[WARN]", errors.getvalue())
+            self.assertEqual(path.read_text(), "https://private.example/debian\n")
+            path.write_text(mirror + "\n")
+            errors = io.StringIO()
+            with contextlib.redirect_stderr(errors):
+                self.assertEqual(module.configure_mirrors(apt, mirror), 0)
+            self.assertEqual(errors.getvalue(), "")

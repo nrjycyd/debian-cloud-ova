@@ -198,9 +198,9 @@ on:
         required: false
         default: '123456'
 
-# Serialize all branches of the same Debian version, including queued requests.
+# Serialize updates of one channel/version; test uses separate prerelease tags.
 concurrency:
-  group: ova-debian-${{ inputs.debian_version }}
+  group: ova-${{ github.ref }}-debian-${{ inputs.debian_version }}
   cancel-in-progress: false
   queue: max
 
@@ -260,4 +260,4 @@ jobs:
       - name: 清理
         if: always()
         run: |
-          rm -f -- ./*.qcow2 ./*.vmdk ./*.ovf ./*.mf ./*.ova ./*.ova.part ./*.source.sha512 ./*.growroot-prepared.sha256 ./cidata.iso
+          rm -f -- ./*.qcow2 ./*.vmdk ./*.ovf ./*.mf ./*.ova ./*.ova.part ./*.source.sha512 ./*.growroot-prepared.sha256 ./*.growroot-verified.sha256 ./cidata.iso

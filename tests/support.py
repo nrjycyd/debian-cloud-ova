@@ -26,13 +26,21 @@ def build_fixture():
         binaries = work / "bin"
         binaries.mkdir()
         mocks = {
-            "cloud-localds": '#!/bin/sh\ncp "$2" "$1"\n',
+            "cloud-localds": '#!/bin/sh\ncp "$2" "$1"\nif [ "${MOCK_TEMP_RESIDUE:-}" = true ]; then touch "$(dirname "$2")/residue"; fi\n',
             # Keep the runner's sudo branch inside the isolated fake toolchain.
             "sudo": '#!/bin/sh\n[ "$1" = -n ] || exit 1\nshift\necho sudo >> sudo-calls\nexec "$@"\n',
             "guestfish": '''#!/usr/bin/python3
 import os, sys
 from pathlib import Path
 commands = sys.stdin.read()
+if '--ro' in sys.argv:
+    assert '--format=vmdk' in sys.argv and 'filesize /etc/growroot-disabled' in commands
+    with Path('verify-calls').open('a') as output: output.write('verify\\n')
+    mode = os.environ.get('MOCK_VERIFY', '')
+    if mode == 'fail': sys.exit(1)
+    print('false' if mode == 'missing' else 'true')
+    print('1' if mode == 'nonempty' else '0')
+    sys.exit()
 assert 'touch /etc/growroot-disabled' in commands and 'is-file /etc/growroot-disabled' in commands
 with Path('guestfish-calls').open('a') as output: output.write('prepare\\n')
 mode = os.environ.get('MOCK_GUESTFISH', '')
@@ -69,7 +77,7 @@ elif args[0] == 'convert':
         try:
             yield work, dict(os.environ, PATH=str(binaries) + ":" + os.environ["PATH"],
                              GITHUB_ACTIONS="true", RUNNER_TEMP=str(work), GITHUB_OUTPUT=str(work / "outputs"),
-                             TMPDIR=str(work), GITHUB_SHA="a" * 40)
+                             TMPDIR=str(work), GITHUB_SHA="a" * 40, GITHUB_REF="refs/heads/main")
         finally:
             os.chdir(previous)
 

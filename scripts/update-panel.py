@@ -4,6 +4,7 @@ import re
 import sys
 
 from config import ROOT, catalog
+from panel import validate
 
 path = ROOT / ".github/workflows/build-ova.yml"
 original = path.read_text(encoding="utf-8")
@@ -16,6 +17,10 @@ for key in ("build_target", "build_target_2", "build_target_3", "build_target_4"
                             updated, count=1)
     if count != 1:
         sys.exit(f"找不到面板字段：{key}")
+try:
+    validate(updated)
+except (ValueError, KeyError) as error:
+    sys.exit(str(error))
 if "--check" in sys.argv:
     if updated != original:
         sys.exit("机型选项与目录不一致，请运行 python3 scripts/update-panel.py")

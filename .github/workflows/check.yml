@@ -20,7 +20,8 @@ jobs:
           sudo apt install -y --no-install-recommends python3-yaml cloud-init shellcheck
       - name: 检查脚本和机型面板
         run: |
+          /usr/bin/python3 scripts/check-environment.py
           shellcheck debian-ova-creator.sh scripts/publish.sh guest/*.sh
           /usr/bin/python3 scripts/update-panel.py --check
       - name: 回归检查
-        run: /usr/bin/python3 -m unittest discover -s tests -v
+        run: /usr/bin/python3 -m unittest discover -s tests -t . -v

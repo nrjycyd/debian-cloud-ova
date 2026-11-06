@@ -9,6 +9,7 @@ from pathlib import Path
 
 from config import MIRRORS, ROOT, from_environment, select_targets
 from source import download, resolve
+from release import policy
 
 
 def write_outputs(path, values):
@@ -24,13 +25,14 @@ def run_batch(env):
     targets = select_targets(env)
     work = Path(env["RUNNER_TEMP"])
     source = resolve(settings["version"])
+    release = policy(env.get("GITHUB_REF", ""), settings["version"], source["build"])
     print(f"[INFO] Debian 官方源版本：{source['build']}；正在下载并校验 SHA512", flush=True)
     source_manifest = work / "debian-source.json"
     source_manifest.write_text(json.dumps(source, indent=2) + "\n")
     source_image = work / "debian-source.qcow2"
     download(source, source_image)
     manifest = {
-        "source": source,
+        "source": source, "release": release,
         "settings": {key: value for key, value in settings.items() if key != "password"},
         "commit": env.get("GITHUB_SHA", ""), "run_id": env.get("GITHUB_RUN_ID", ""),
         "target_count": len(targets), "images": [],
@@ -65,7 +67,7 @@ def run_batch(env):
     manifest["build_time"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     path = work / "build-manifest.json"
     path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
-    write_outputs(env["GITHUB_OUTPUT"], {"BUILD_MANIFEST": path, "FINAL_TAG": source["build"]})
+    write_outputs(env["GITHUB_OUTPUT"], {"BUILD_MANIFEST": path, "FINAL_TAG": release["tag"]})
     print(f"[INFO] 全部构建完成：{len(manifest['images'])} 份镜像，软件源：{MIRRORS[settings['mirror']][0]}")
 
 

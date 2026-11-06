@@ -32,6 +32,7 @@ def cloud_config(settings, source, preset, env):
         "timezone": settings["timezone"],
         "growpart": {"mode": "auto", "devices": ["/"], "ignore_growroot_disabled": True},
         "resize_rootfs": True,
+        # Validated baseline: Debian 12 cloud-init 22.4.2 and Debian 13.
         "chpasswd": {"users": [{"name": settings["username"], "password": settings["password"], "type": "text"}],
                      "expire": False},
         "packages": ["cloud-init", "openssh-server", "tzdata"] + (["open-vm-tools"] if settings["install_vm_tools"] else []),
@@ -49,7 +50,8 @@ def cloud_config(settings, source, preset, env):
         bootcmd.append(["cloud-init-per", "instance", "ova-domestic-apt", "/usr/bin/python3", "-c",
                         (ROOT / "guest/apt-mirrors.py").read_text(encoding="utf-8"), MIRRORS[settings["mirror"]][1]])
     if not ssh:
-        bootcmd.append(["systemctl", "mask", "--now", "ssh.service", "ssh.socket"])
+        bootcmd.append(["cloud-init-per", "instance", "ova-disable-ssh", "systemctl", "mask", "--now",
+                        "ssh.service", "ssh.socket"])
     if bootcmd:
         config["bootcmd"] = bootcmd
     return config

@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from support import source_info
+from tests.support import source_info
 import source
 
 

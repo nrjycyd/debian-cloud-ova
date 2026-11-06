@@ -7,8 +7,10 @@ from pathlib import Path
 
 import yaml
 
-from support import ROOT
+from tests.support import ROOT
 from config import MIRRORS, TIMEZONES, VERSIONS, catalog
+from panel import validate as validate_panel
+from release import policy
 
 
 class PanelTests(unittest.TestCase):
@@ -28,22 +30,53 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(inputs["timezone"]["options"], list(TIMEZONES))
         self.assertFalse(workflow["concurrency"]["cancel-in-progress"])
         self.assertEqual(workflow["concurrency"]["queue"], "max")
-        self.assertNotIn("github.ref", workflow["concurrency"]["group"])
+        self.assertIn("github.ref", workflow["concurrency"]["group"])
+        validate_panel((ROOT / ".github/workflows/build-ova.yml").read_text())
         steps = workflow["jobs"]["build_ova"]["steps"]
         publish = next(step for step in steps if step.get("name") == "创建 GitHub Release")
         self.assertEqual(publish["if"], "success()")
         for step in steps:
             self.assertNotIn("${{", step.get("run", ""))
 
+    def test_all_choice_defaults_and_shared_options_reject_drift(self):
+        workflow = yaml.safe_load((ROOT / ".github/workflows/build-ova.yml").read_text())
+        inputs = workflow.get("on", workflow.get(True))["workflow_dispatch"]["inputs"]
+        for name, definition in inputs.items():
+            if definition.get("type") != "choice":
+                continue
+            previous = definition["default"]
+            definition["default"] = "invalid default"
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                validate_panel(yaml.safe_dump(workflow))
+            definition["default"] = previous
+        for name in ("debian_version", "apt_mirror", "timezone"):
+            inputs[name]["options"].append("extra option")
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                validate_panel(yaml.safe_dump(workflow))
+            inputs[name]["options"].pop()
+
+    def test_release_channels(self):
+        self.assertEqual(policy("refs/heads/main", "12", "20261106-1234"),
+                         {"tag": "20261106-1234", "prerelease": False})
+        self.assertEqual(policy("refs/heads/test", "12", "20261106-1234"),
+                         {"tag": "test-debian12-20261106-1234", "prerelease": True})
+        for ref in ("", "refs/heads/feature", "refs/tags/test", "refs/pull/1/merge"):
+            with self.assertRaises(ValueError):
+                policy(ref, "12", "20261106-1234")
+
 
 class PublishTests(unittest.TestCase):
     def test_existing_new_raced_and_failed_publications(self):
+        self.publish_modes("refs/heads/main")
+        self.publish_modes("refs/heads/test")
+
+    def publish_modes(self, ref):
         for mode, expected in (("new", ["view", "create"]),
                                ("existing", ["view", "upload", "edit"]),
                                ("race", ["view", "create", "view", "upload", "edit"]),
                                ("network-error", ["view", "create", "view"]),
                                ("upload-error", ["view", "upload"])):
-            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+            with self.subTest(mode=mode, ref=ref), tempfile.TemporaryDirectory() as directory:
                 work = Path(directory)
                 executable = work / "gh"
                 executable.write_text('''#!/usr/bin/python3
@@ -54,10 +87,19 @@ log = Path(os.environ['RUNNER_TEMP']) / 'gh-calls'
 history = log.read_text().splitlines() if log.exists() else []
 with log.open('a') as output: output.write(command + '\\n')
 mode = os.environ['TEST_RELEASE_MODE']
+tag = sys.argv[3]
+if os.environ['GITHUB_REF'] == 'refs/heads/test':
+    assert tag.startswith('test-debian12-')
+    if command in ('create', 'edit'):
+        assert '--prerelease' in sys.argv and '--latest=false' in sys.argv
+else:
+    assert tag == '20261106-1234'
+    if command in ('create', 'edit'): assert '--prerelease=false' in sys.argv
 if command == 'view': sys.exit(0 if mode in ('existing', 'upload-error') or (mode == 'race' and history) else 1)
 if command == 'create':
     assert '--target' in sys.argv and os.environ['GITHUB_SHA'] in sys.argv
-    sys.exit(1 if mode in ('race', 'network-error') else 0)
+    if mode in ('race', 'network-error'): print('CREATE_ORIGINAL_403', file=sys.stderr); sys.exit(47)
+    sys.exit(0)
 if command == 'upload': sys.exit(1 if mode == 'upload-error' else 0)
 ''')
                 executable.chmod(0o755)
@@ -67,15 +109,28 @@ if command == 'upload': sys.exit(1 if mode == 'upload-error' else 0)
                                          "username": "debian", "mirror": "official", "install_vm_tools": True,
                                          "timezone": "UTC"},
                             "source": {"build": "20261106-1234"}, "build_time": "now",
+                            "release": policy(ref, "12", "20261106-1234"),
                             "images": [{"target": "ESXi 7", "kind": "console", "filename": asset.name,
                                         "username": "debian", "size": "320M", "disk_gib": "4.00"}]}
                 manifest_path = work / "manifest.json"
                 manifest_path.write_text(json.dumps(manifest))
                 env = dict(os.environ, PATH=str(work) + ":" + os.environ["PATH"], RUNNER_TEMP=str(work),
-                           BUILD_MANIFEST=str(manifest_path), FINAL_TAG="20261106-1234", GITHUB_SHA="b" * 40,
+                           BUILD_MANIFEST=str(manifest_path), FINAL_TAG=manifest["release"]["tag"], GITHUB_SHA="b" * 40,
+                           GITHUB_REF=ref,
                            TARGET_VERSION="12", TARGET_PASSWORD="123456", TEST_RELEASE_MODE=mode)
                 result = subprocess.run(["bash", str(ROOT / "scripts/publish.sh")], env=env, cwd=work,
                                         text=True, capture_output=True)
                 self.assertEqual(result.returncode == 0, mode not in ("network-error", "upload-error"), result.stderr)
+                if mode == "network-error":
+                    self.assertEqual(result.returncode, 47)
+                    self.assertIn("CREATE_ORIGINAL_403", result.stderr)
                 self.assertEqual((work / "gh-calls").read_text().splitlines(), expected)
                 self.assertEqual((work / "release-notes.md").read_text().count("## Debian 云镜像 OVA"), 1)
+                # A test run cannot override FINAL_TAG to upload production assets.
+                if ref == "refs/heads/test":
+                    before = (work / "gh-calls").read_text()
+                    env["FINAL_TAG"] = "20261106-1234"
+                    rejected = subprocess.run(["bash", str(ROOT / "scripts/publish.sh")], env=env, cwd=work,
+                                              text=True, capture_output=True)
+                    self.assertNotEqual(rejected.returncode, 0)
+                    self.assertEqual((work / "gh-calls").read_text(), before)

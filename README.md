@@ -1,6 +1,6 @@
 # Debian Cloud OVA Builder
 
-基于 **Debian 官方云镜像**（源自 [cloud.debian.org](https://cloud.debian.org/images/cloud/)），通过封装 Cloud-Init 配置，自动构建可直接导入 **VMware ESXi / Workstation** 及 **VirtualBox** 的 OVA 虚拟机模板。
+基于 **Debian 官方云镜像**（源自 [cloud.debian.org](https://cloud.debian.org/images/cloud/)），通过封装 Cloud-Init 配置，构建面向 **VMware ESXi / Workstation** 的 OVA 虚拟机模板。其他平台兼容性需自行验证。
 
 > [!CAUTION]
 > **安全警告：仅限内部测试环境使用**
@@ -50,6 +50,8 @@
     | `登录密码` | 两种镜像共用的登录密码 | `123456` | 非 SSH 镜像用于普通用户，SSH 镜像用于 root；仅允许字母/数字及 `@#%+=.,_-`（构建日志中可见） |
 
 5. 构建完成后，在 **Releases** 页面下载生成的 `.ova` 文件。
+
+`test` 分支的构建发布为独立的预发布版本，标签以 `test-debian` 开头；正式版本仍由 `main` 分支发布。
 
 每次选择一个 Debian 版本（默认 13），最多构建四种机型。附加机型可选“不构建”，重复选择自动去重，各机型共用自定义参数。
 
