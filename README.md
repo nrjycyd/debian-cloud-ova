@@ -132,12 +132,33 @@ sudo chage -d 0 debian
 官方源手动改源（以清华大学为例）：
 
 ```bash
-sudo cp -a /etc/apt/mirrors/debian.list "/etc/apt/mirrors/debian.list.$(date +%Y%m%d_%H%M%S).bak"
-printf '%s\n' 'https://mirrors.tuna.tsinghua.edu.cn/debian' | sudo tee /etc/apt/mirrors/debian.list > /dev/null
+sudo python3 - <<'PY'
+import re
+import shutil
+from pathlib import Path
+
+mirror = "https://mirrors.tuna.tsinghua.edu.cn/debian"
+apt = Path("/etc/apt")
+primary = re.compile(r"https?://(?:deb\.debian\.org|httpredir\.debian\.org|ftp\.debian\.org|ftp\.[a-z]{2}\.debian\.org)/debian(?=[/\s]|$)")
+security = re.compile(r"https?://(?:deb\.debian\.org|security\.debian\.org)/debian-security(?=[/\s]|$)")
+for path in sorted((apt / "mirrors").glob("*.list")):
+    if not path.is_file() or path.is_symlink():
+        continue
+    original = path.read_text(encoding="utf-8")
+    updated = security.sub("https://security.debian.org/debian-security", original)
+    updated = primary.sub(mirror, updated)
+    if updated == original:
+        continue
+    backup = apt / "ova-source-backups" / path.relative_to(apt)
+    if not backup.exists():
+        backup.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, backup)
+    path.write_text(updated, encoding="utf-8")
+PY
 sudo apt update
 ```
 
-可将示例地址替换为上表中的其他软件源；仅修改普通软件源列表，安全更新源保持不变。
+可将 `mirror` 地址替换为上表中的其他软件源。与构建脚本一致，仅替换列表中的已知官方源地址，保留其他内容；安全更新使用官方源。修改前的文件备份到 `/etc/apt/ova-source-backups/mirrors/`，已有备份不覆盖。
 
 ### 2. 虚拟机工具集
 
