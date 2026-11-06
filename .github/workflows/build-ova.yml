@@ -15,7 +15,7 @@ on:
       build_target:
         description: 'ESXi 机型 + Guest OS'
         required: true
-        default: 'ESXi 9.0+ + DGNU 13 (vmx-22)'
+        default: 'ESXi 6.7 U3 + DGNU 10 (vmx-15)'
         type: choice
         options:
           - 'ESXi 6.7 + DGNU 9 (vmx-14)'
@@ -46,7 +46,7 @@ on:
       build_target_2:
         description: '附加机型 1'
         required: false
-        default: 'ESXi 6.7 U3 + DGNU 10 (vmx-15)'
+        default: 'ESXi 7.0 U3 + DGNU 11 (vmx-19)'
         type: choice
         options:
           - '不构建'
@@ -78,7 +78,7 @@ on:
       build_target_3:
         description: '附加机型 2'
         required: false
-        default: 'ESXi 7.0 U3 + DGNU 11 (vmx-19)'
+        default: 'ESXi 8.0 U3 + DGNU 13 (vmx-21)'
         type: choice
         options:
           - '不构建'
@@ -110,7 +110,7 @@ on:
       build_target_4:
         description: '附加机型 3'
         required: false
-        default: 'ESXi 8.0 U3 + DGNU 13 (vmx-21)'
+        default: 'ESXi 9.0+ + DGNU 13 (vmx-22)'
         type: choice
         options:
           - '不构建'
