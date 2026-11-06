@@ -76,7 +76,20 @@ def from_environment(env):
 
 
 def catalog():
-    return json.loads((ROOT / ".github/build-targets.json").read_text(encoding="utf-8"))
+    items = json.loads((ROOT / ".github/build-targets.json").read_text(encoding="utf-8"))
+    labels = set()
+    for item in items:
+        label = item.get("label")
+        # ESXi wording can include update ranges; validate the structured suffix.
+        match = re.fullmatch(r"ESXi .+ \+ DGNU ([0-9]+) \((vmx-[0-9]+)\)", label) if isinstance(label, str) else None
+        if not match:
+            raise ValueError(f"机型目录 label 格式不合法：{label}")
+        if int(match[1]) != item.get("dgnu") or match[2] != item.get("vmx"):
+            raise ValueError(f"机型目录 label 与 DGNU/vmx 字段不一致：{label}")
+        if label in labels:
+            raise ValueError(f"机型目录 label 重复：{label}")
+        labels.add(label)
+    return items
 
 
 def select_targets(env):

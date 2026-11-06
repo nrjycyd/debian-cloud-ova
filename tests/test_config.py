@@ -1,6 +1,10 @@
 import sys
+import copy
+import json
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from config import catalog, from_environment, integer, select_targets, target, validate
@@ -20,6 +24,32 @@ def environment():
 
 
 class ConfigTests(unittest.TestCase):
+    def test_catalog_rejects_label_drift_and_duplicates(self):
+        items = catalog()
+        changes = (
+            ({"vmx": "vmx-22"}, "字段不一致"),
+            ({"dgnu": 13}, "字段不一致"),
+            ({"label": "ESXi 6.7 + DGNU 9 (vmx-14) FAKE"}, "格式不合法"),
+            ({"label": None}, "格式不合法"),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".github").mkdir()
+            path = root / ".github/build-targets.json"
+            with patch("config.ROOT", root):
+                # Every existing update range must remain accepted unchanged.
+                path.write_text(json.dumps(items))
+                self.assertEqual(catalog(), items)
+                for change, error in changes:
+                    modified = copy.deepcopy(items)
+                    modified[0].update(change)
+                    path.write_text(json.dumps(modified))
+                    with self.subTest(change=change), self.assertRaisesRegex(ValueError, error):
+                        catalog()
+                path.write_text(json.dumps(items + [items[0]]))
+                with self.assertRaisesRegex(ValueError, "label 重复"):
+                    catalog()
+
     def test_integer_boundaries_and_overflow(self):
         for key, low, high in (("TARGET_VCPU", 1, 64), ("TARGET_MEMORY", 256, 262144), ("TARGET_DISK", 2, 2048)):
             for value in (str(low), str(high), "00" + str(low)):
