@@ -125,10 +125,6 @@ fi
 
 # Map Debian version to codename
 case "$debver" in
-    11|bullseye)
-        debver="11"
-        debcodename="bullseye"
-        ;;
     12|bookworm)
         debver="12"
         debcodename="bookworm"

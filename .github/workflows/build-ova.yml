@@ -9,7 +9,6 @@ on:
         default: '13'
         type: choice
         options:
-          - '11'
           - '12'
           - '13'
       build_target:
@@ -288,7 +287,7 @@ jobs:
           fi
 
           # 校验所选系统版本。
-          if ! [[ "$TARGET_VERSION" =~ ^(11|12|13)$ ]]; then
+          if ! [[ "$TARGET_VERSION" =~ ^(12|13)$ ]]; then
               echo "[ERROR] 不支持的 Debian 版本: $TARGET_VERSION"; exit 1
           fi
 
@@ -393,7 +392,6 @@ jobs:
 
           # 解析 Debian 官方 build 号（latest 目录页中最大 YYYYMMDD-NNNN），追加到发布标签
           case "$TARGET_VERSION" in
-            11) CODENAME="bullseye" ;;
             12) CODENAME="bookworm" ;;
             13) CODENAME="trixie" ;;
           esac

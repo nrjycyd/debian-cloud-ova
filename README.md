@@ -14,7 +14,7 @@
 ## 功能特性
 
 - **官方源构建**：基于 `Debian Official Cloud Images` 构建，确保纯净安全。
-- **多版本支持**：Debian 11 (Bullseye)、12 (Bookworm)、13 (Trixie)，每次选择一个系统构建。Guest OS 标识（DGNU）按 ESXi 兼容性选择，与实际系统版本独立。
+- **多版本支持**：Debian 12 (Bookworm)、13 (Trixie)，每次选择一个系统构建。Guest OS 标识（DGNU）按 ESXi 兼容性选择，与实际系统版本独立。
 - **机型精确匹配**：通过四个下拉框一次选择最多四种 ESXi + Guest OS 组合，保留全部预设选项，重复组合自动去重。
 - **硬件定制**：构建时可自定义 vCPU、内存和磁盘大小（输入最小 2 GiB；小于源镜像实际虚拟容量时，自动采用源镜像容量继续构建）。
 - **自动化发布**：GitHub Actions 一键构建，并自动以 Debian 官方 build 号为标签发布 Release。
@@ -33,7 +33,7 @@
 
     | 参数 | 说明 | 默认值 | 可选范围 / 备注 |
     | --- | --- | --- | --- |
-    | `Debian 系统版本` | 系统单选下拉框 | `13` | `11` / `12` / `13` |
+    | `Debian 系统版本` | 系统单选下拉框 | `13` | `12` / `13` |
     | `ESXi 机型 + Guest OS` | ESXi 机型 + Guest OS | `ESXi 6.7 U3 + DGNU 10 (vmx-15)` | 下拉选择有效预设组合 |
     | `附加机型 1` | ESXi 机型 + Guest OS | `ESXi 7.0 U3 + DGNU 11 (vmx-19)` | 全部预设组合及“不构建” |
     | `附加机型 2` | ESXi 机型 + Guest OS | `ESXi 8.0 U3 + DGNU 13 (vmx-21)` | 全部预设组合及“不构建” |
