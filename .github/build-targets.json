@@ -1,0 +1,177 @@
+[
+  {
+    "label": "ESXi 6.7 + DGNU 9 (vmx-14)",
+    "vmx": "vmx-14",
+    "dgnu": 9,
+    "os_id": 96,
+    "os_type": "debian9_64Guest"
+  },
+  {
+    "label": "ESXi 6.7 U3 + DGNU 10 (vmx-14)",
+    "vmx": "vmx-14",
+    "dgnu": 10,
+    "os_id": 101,
+    "os_type": "debian10_64Guest"
+  },
+  {
+    "label": "ESXi 6.7 U2+ + DGNU 9 (vmx-15)",
+    "vmx": "vmx-15",
+    "dgnu": 9,
+    "os_id": 96,
+    "os_type": "debian9_64Guest"
+  },
+  {
+    "label": "ESXi 6.7 U3 + DGNU 10 (vmx-15)",
+    "vmx": "vmx-15",
+    "dgnu": 10,
+    "os_id": 101,
+    "os_type": "debian10_64Guest"
+  },
+  {
+    "label": "ESXi 7.0 + DGNU 9 (vmx-17)",
+    "vmx": "vmx-17",
+    "dgnu": 9,
+    "os_id": 96,
+    "os_type": "debian9_64Guest"
+  },
+  {
+    "label": "ESXi 7.0 + DGNU 10 (vmx-17)",
+    "vmx": "vmx-17",
+    "dgnu": 10,
+    "os_id": 101,
+    "os_type": "debian10_64Guest"
+  },
+  {
+    "label": "ESXi 7.0 U1 + DGNU 9 (vmx-18)",
+    "vmx": "vmx-18",
+    "dgnu": 9,
+    "os_id": 96,
+    "os_type": "debian9_64Guest"
+  },
+  {
+    "label": "ESXi 7.0 U1 + DGNU 10 (vmx-18)",
+    "vmx": "vmx-18",
+    "dgnu": 10,
+    "os_id": 101,
+    "os_type": "debian10_64Guest"
+  },
+  {
+    "label": "ESXi 7.0 U2/U3 + DGNU 9 (vmx-19)",
+    "vmx": "vmx-19",
+    "dgnu": 9,
+    "os_id": 96,
+    "os_type": "debian9_64Guest"
+  },
+  {
+    "label": "ESXi 7.0 U2/U3 + DGNU 10 (vmx-19)",
+    "vmx": "vmx-19",
+    "dgnu": 10,
+    "os_id": 101,
+    "os_type": "debian10_64Guest"
+  },
+  {
+    "label": "ESXi 7.0 U3 + DGNU 11 (vmx-19)",
+    "vmx": "vmx-19",
+    "dgnu": 11,
+    "os_id": 96,
+    "os_type": "debian11_64Guest"
+  },
+  {
+    "label": "ESXi 8.0 / 8.0 U1 + DGNU 9 (vmx-20)",
+    "vmx": "vmx-20",
+    "dgnu": 9,
+    "os_id": 96,
+    "os_type": "debian9_64Guest"
+  },
+  {
+    "label": "ESXi 8.0 / 8.0 U1 + DGNU 10 (vmx-20)",
+    "vmx": "vmx-20",
+    "dgnu": 10,
+    "os_id": 101,
+    "os_type": "debian10_64Guest"
+  },
+  {
+    "label": "ESXi 8.0 / 8.0 U1 + DGNU 11 (vmx-20)",
+    "vmx": "vmx-20",
+    "dgnu": 11,
+    "os_id": 96,
+    "os_type": "debian11_64Guest"
+  },
+  {
+    "label": "ESXi 8.0 / 8.0 U1 + DGNU 12 (vmx-20)",
+    "vmx": "vmx-20",
+    "dgnu": 12,
+    "os_id": 96,
+    "os_type": "debian12_64Guest"
+  },
+  {
+    "label": "ESXi 8.0 U2/U3 + DGNU 9 (vmx-21)",
+    "vmx": "vmx-21",
+    "dgnu": 9,
+    "os_id": 96,
+    "os_type": "debian9_64Guest"
+  },
+  {
+    "label": "ESXi 8.0 U2/U3 + DGNU 10 (vmx-21)",
+    "vmx": "vmx-21",
+    "dgnu": 10,
+    "os_id": 101,
+    "os_type": "debian10_64Guest"
+  },
+  {
+    "label": "ESXi 8.0 U2/U3 + DGNU 11 (vmx-21)",
+    "vmx": "vmx-21",
+    "dgnu": 11,
+    "os_id": 96,
+    "os_type": "debian11_64Guest"
+  },
+  {
+    "label": "ESXi 8.0 U2/U3 + DGNU 12 (vmx-21)",
+    "vmx": "vmx-21",
+    "dgnu": 12,
+    "os_id": 96,
+    "os_type": "debian12_64Guest"
+  },
+  {
+    "label": "ESXi 8.0 U3 + DGNU 13 (vmx-21)",
+    "vmx": "vmx-21",
+    "dgnu": 13,
+    "os_id": 96,
+    "os_type": "debian13_64Guest"
+  },
+  {
+    "label": "ESXi 9.0+ + DGNU 9 (vmx-22)",
+    "vmx": "vmx-22",
+    "dgnu": 9,
+    "os_id": 96,
+    "os_type": "debian9_64Guest"
+  },
+  {
+    "label": "ESXi 9.0+ + DGNU 10 (vmx-22)",
+    "vmx": "vmx-22",
+    "dgnu": 10,
+    "os_id": 101,
+    "os_type": "debian10_64Guest"
+  },
+  {
+    "label": "ESXi 9.0+ + DGNU 11 (vmx-22)",
+    "vmx": "vmx-22",
+    "dgnu": 11,
+    "os_id": 96,
+    "os_type": "debian11_64Guest"
+  },
+  {
+    "label": "ESXi 9.0+ + DGNU 12 (vmx-22)",
+    "vmx": "vmx-22",
+    "dgnu": 12,
+    "os_id": 96,
+    "os_type": "debian12_64Guest"
+  },
+  {
+    "label": "ESXi 9.0+ + DGNU 13 (vmx-22)",
+    "vmx": "vmx-22",
+    "dgnu": 13,
+    "os_id": 96,
+    "os_type": "debian13_64Guest"
+  }
+]

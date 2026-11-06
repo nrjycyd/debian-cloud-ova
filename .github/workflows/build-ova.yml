@@ -43,6 +43,102 @@ on:
           - 'ESXi 9.0+ + DGNU 11 (vmx-22)'
           - 'ESXi 9.0+ + DGNU 12 (vmx-22)'
           - 'ESXi 9.0+ + DGNU 13 (vmx-22)'
+      build_target_2:
+        description: '附加机型 1'
+        required: false
+        default: 'ESXi 6.7 U3 + DGNU 10 (vmx-15)'
+        type: choice
+        options:
+          - '不构建'
+          - 'ESXi 6.7 + DGNU 9 (vmx-14)'
+          - 'ESXi 6.7 U3 + DGNU 10 (vmx-14)'
+          - 'ESXi 6.7 U2+ + DGNU 9 (vmx-15)'
+          - 'ESXi 6.7 U3 + DGNU 10 (vmx-15)'
+          - 'ESXi 7.0 + DGNU 9 (vmx-17)'
+          - 'ESXi 7.0 + DGNU 10 (vmx-17)'
+          - 'ESXi 7.0 U1 + DGNU 9 (vmx-18)'
+          - 'ESXi 7.0 U1 + DGNU 10 (vmx-18)'
+          - 'ESXi 7.0 U2/U3 + DGNU 9 (vmx-19)'
+          - 'ESXi 7.0 U2/U3 + DGNU 10 (vmx-19)'
+          - 'ESXi 7.0 U3 + DGNU 11 (vmx-19)'
+          - 'ESXi 8.0 / 8.0 U1 + DGNU 9 (vmx-20)'
+          - 'ESXi 8.0 / 8.0 U1 + DGNU 10 (vmx-20)'
+          - 'ESXi 8.0 / 8.0 U1 + DGNU 11 (vmx-20)'
+          - 'ESXi 8.0 / 8.0 U1 + DGNU 12 (vmx-20)'
+          - 'ESXi 8.0 U2/U3 + DGNU 9 (vmx-21)'
+          - 'ESXi 8.0 U2/U3 + DGNU 10 (vmx-21)'
+          - 'ESXi 8.0 U2/U3 + DGNU 11 (vmx-21)'
+          - 'ESXi 8.0 U2/U3 + DGNU 12 (vmx-21)'
+          - 'ESXi 8.0 U3 + DGNU 13 (vmx-21)'
+          - 'ESXi 9.0+ + DGNU 9 (vmx-22)'
+          - 'ESXi 9.0+ + DGNU 10 (vmx-22)'
+          - 'ESXi 9.0+ + DGNU 11 (vmx-22)'
+          - 'ESXi 9.0+ + DGNU 12 (vmx-22)'
+          - 'ESXi 9.0+ + DGNU 13 (vmx-22)'
+      build_target_3:
+        description: '附加机型 2'
+        required: false
+        default: 'ESXi 7.0 U3 + DGNU 11 (vmx-19)'
+        type: choice
+        options:
+          - '不构建'
+          - 'ESXi 6.7 + DGNU 9 (vmx-14)'
+          - 'ESXi 6.7 U3 + DGNU 10 (vmx-14)'
+          - 'ESXi 6.7 U2+ + DGNU 9 (vmx-15)'
+          - 'ESXi 6.7 U3 + DGNU 10 (vmx-15)'
+          - 'ESXi 7.0 + DGNU 9 (vmx-17)'
+          - 'ESXi 7.0 + DGNU 10 (vmx-17)'
+          - 'ESXi 7.0 U1 + DGNU 9 (vmx-18)'
+          - 'ESXi 7.0 U1 + DGNU 10 (vmx-18)'
+          - 'ESXi 7.0 U2/U3 + DGNU 9 (vmx-19)'
+          - 'ESXi 7.0 U2/U3 + DGNU 10 (vmx-19)'
+          - 'ESXi 7.0 U3 + DGNU 11 (vmx-19)'
+          - 'ESXi 8.0 / 8.0 U1 + DGNU 9 (vmx-20)'
+          - 'ESXi 8.0 / 8.0 U1 + DGNU 10 (vmx-20)'
+          - 'ESXi 8.0 / 8.0 U1 + DGNU 11 (vmx-20)'
+          - 'ESXi 8.0 / 8.0 U1 + DGNU 12 (vmx-20)'
+          - 'ESXi 8.0 U2/U3 + DGNU 9 (vmx-21)'
+          - 'ESXi 8.0 U2/U3 + DGNU 10 (vmx-21)'
+          - 'ESXi 8.0 U2/U3 + DGNU 11 (vmx-21)'
+          - 'ESXi 8.0 U2/U3 + DGNU 12 (vmx-21)'
+          - 'ESXi 8.0 U3 + DGNU 13 (vmx-21)'
+          - 'ESXi 9.0+ + DGNU 9 (vmx-22)'
+          - 'ESXi 9.0+ + DGNU 10 (vmx-22)'
+          - 'ESXi 9.0+ + DGNU 11 (vmx-22)'
+          - 'ESXi 9.0+ + DGNU 12 (vmx-22)'
+          - 'ESXi 9.0+ + DGNU 13 (vmx-22)'
+      build_target_4:
+        description: '附加机型 3'
+        required: false
+        default: 'ESXi 8.0 U3 + DGNU 13 (vmx-21)'
+        type: choice
+        options:
+          - '不构建'
+          - 'ESXi 6.7 + DGNU 9 (vmx-14)'
+          - 'ESXi 6.7 U3 + DGNU 10 (vmx-14)'
+          - 'ESXi 6.7 U2+ + DGNU 9 (vmx-15)'
+          - 'ESXi 6.7 U3 + DGNU 10 (vmx-15)'
+          - 'ESXi 7.0 + DGNU 9 (vmx-17)'
+          - 'ESXi 7.0 + DGNU 10 (vmx-17)'
+          - 'ESXi 7.0 U1 + DGNU 9 (vmx-18)'
+          - 'ESXi 7.0 U1 + DGNU 10 (vmx-18)'
+          - 'ESXi 7.0 U2/U3 + DGNU 9 (vmx-19)'
+          - 'ESXi 7.0 U2/U3 + DGNU 10 (vmx-19)'
+          - 'ESXi 7.0 U3 + DGNU 11 (vmx-19)'
+          - 'ESXi 8.0 / 8.0 U1 + DGNU 9 (vmx-20)'
+          - 'ESXi 8.0 / 8.0 U1 + DGNU 10 (vmx-20)'
+          - 'ESXi 8.0 / 8.0 U1 + DGNU 11 (vmx-20)'
+          - 'ESXi 8.0 / 8.0 U1 + DGNU 12 (vmx-20)'
+          - 'ESXi 8.0 U2/U3 + DGNU 9 (vmx-21)'
+          - 'ESXi 8.0 U2/U3 + DGNU 10 (vmx-21)'
+          - 'ESXi 8.0 U2/U3 + DGNU 11 (vmx-21)'
+          - 'ESXi 8.0 U2/U3 + DGNU 12 (vmx-21)'
+          - 'ESXi 8.0 U3 + DGNU 13 (vmx-21)'
+          - 'ESXi 9.0+ + DGNU 9 (vmx-22)'
+          - 'ESXi 9.0+ + DGNU 10 (vmx-22)'
+          - 'ESXi 9.0+ + DGNU 11 (vmx-22)'
+          - 'ESXi 9.0+ + DGNU 12 (vmx-22)'
+          - 'ESXi 9.0+ + DGNU 13 (vmx-22)'
       vcpu:
         description: 'vCPU'
         required: false
@@ -117,6 +213,9 @@ jobs:
     env:
       TARGET_VERSION: ${{ inputs.debian_version }}
       TARGET_BUILD: ${{ github.event.inputs.build_target }}
+      TARGET_BUILD_2: ${{ inputs.build_target_2 }}
+      TARGET_BUILD_3: ${{ inputs.build_target_3 }}
+      TARGET_BUILD_4: ${{ inputs.build_target_4 }}
       TARGET_VCPU: ${{ github.event.inputs.vcpu }}
       TARGET_MEMORY: ${{ github.event.inputs.memory }}
       TARGET_DISK: ${{ github.event.inputs.disk_size }}
@@ -193,24 +292,28 @@ jobs:
               echo "[ERROR] 不支持的 Debian 版本: $TARGET_VERSION"; exit 1
           fi
 
-          # 解析组合选项：'ESXi 9.0+ + DGNU 13 (vmx-22)' → vmx 机型 + DGNU 标识
-          VIRTUAL_SYSTEM_TYPE=$(echo "$TARGET_BUILD" | grep -oE 'vmx-[0-9]+')
-          DGNU_NUM=$(echo "$TARGET_BUILD" | grep -oE 'DGNU [0-9]+' | grep -oE '[0-9]+')
-          if [ -z "$VIRTUAL_SYSTEM_TYPE" ] || [ -z "$DGNU_NUM" ]; then
-              echo "[ERROR] 无法解析构建目标: $TARGET_BUILD"; exit 1
-          fi
-          export VIRTUAL_SYSTEM_TYPE
-
-          # 组合校验：DGNU 不得超过该机型 ESXi 可识别的最高 osType（防手填非法 dispatch）
-          case "$VIRTUAL_SYSTEM_TYPE" in
-            vmx-14|vmx-15|vmx-17|vmx-18) MAX_OS=10 ;;
-            vmx-19)                       MAX_OS=11 ;;
-            vmx-20)                       MAX_OS=12 ;;
-            vmx-21|vmx-22)                MAX_OS=13 ;;
-          esac
-          if [ "$DGNU_NUM" -gt "$MAX_OS" ]; then
-              echo "[ERROR] DGNU $DGNU_NUM 超过 $VIRTUAL_SYSTEM_TYPE 可识别上限 $MAX_OS"; exit 1
-          fi
+          # 精确匹配面板预设，拒绝 API 手填的无效组合；按槽位顺序去重。
+          TARGET_PLAN="$RUNNER_TEMP/selected-targets.tsv"
+          python3 - "$TARGET_PLAN" <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          catalog = {item["label"]: item for item in json.loads(Path(".github/build-targets.json").read_text())}
+          selected = []
+          seen = set()
+          for index, key in enumerate(("TARGET_BUILD", "TARGET_BUILD_2", "TARGET_BUILD_3", "TARGET_BUILD_4")):
+              label = os.environ.get(key, "")
+              if index and label in ("", "不构建"):
+                  continue
+              if label not in catalog:
+                  sys.exit(f"::error::构建目标 {index + 1} 无效，请从下拉框选择")
+              item = catalog[label]
+              identity = (item["vmx"], item["dgnu"])
+              if identity not in seen:
+                  selected.append(item)
+                  seen.add(identity)
+          Path(sys.argv[1]).write_text("".join(
+              f"{x['label']}\t{x['vmx']}\t{x['os_id']}\t{x['os_type']}\n" for x in selected))
+          PY
 
           echo "[INFO] 开始构建 OVA，参数如下："
           echo "[INFO] Debian 版本: $TARGET_VERSION"
@@ -218,23 +321,12 @@ jobs:
           echo "[INFO] vCPU: ${TARGET_VCPU}"
           echo "[INFO] 内存: ${TARGET_MEMORY}MB"
           echo "[INFO] 磁盘: ${TARGET_DISK}GB"
-          echo "[INFO] ESXi 机型: $VIRTUAL_SYSTEM_TYPE"
           echo "[INFO] 主机名: ${TARGET_HOSTNAME}"
           echo "[INFO] 登录账户: $LOGIN_USERNAME"
           echo "[INFO] 附加 SSH 镜像: $TARGET_ENABLE_SSH"
           echo "[INFO] 软件源: $APT_SOURCE_LABEL"
           echo "[INFO] 安装 open-vm-tools: $TARGET_INSTALL_VM_TOOLS"
           echo "[INFO] 时区: $TARGET_TIMEZONE"
-
-          # Guest OS 标识：由组合中的 DGNU 直接映射（组合已保证 ≤ 机型可识别上限）
-          case "$DGNU_NUM" in
-            9)  export OVF_OS_ID=96;  export OVF_OS_TYPE=debian9_64Guest ;;
-            10) export OVF_OS_ID=101; export OVF_OS_TYPE=debian10_64Guest ;;
-            11) export OVF_OS_ID=96;  export OVF_OS_TYPE=debian11_64Guest ;;
-            12) export OVF_OS_ID=96;  export OVF_OS_TYPE=debian12_64Guest ;;
-            13) export OVF_OS_ID=96;  export OVF_OS_TYPE=debian13_64Guest ;;
-          esac
-          echo "[INFO] Guest OS: $OVF_OS_TYPE (ovf:id=$OVF_OS_ID)"
 
           build_image() {
             local mode="$1" output="$2"
@@ -261,28 +353,43 @@ jobs:
           PY
           }
 
-          # 默认必建非 SSH 镜像；勾选 SSH 后再额外生成一份。
-          CONSOLE_OUTPUT="$RUNNER_TEMP/console-build.outputs"
-          build_image false "$CONSOLE_OUTPUT"
-          FILE_NAME=$(read_output "$CONSOLE_OUTPUT" OVA_FILE_NAME)
-          FILE_SIZE=$(read_output "$CONSOLE_OUTPUT" OVA_FILE_SIZE)
-          ACTUAL_DISK_GIB=$(read_output "$CONSOLE_OUTPUT" ACTUAL_DISK_GIB)
-          ACTUAL_DISK_BYTES=$(read_output "$CONSOLE_OUTPUT" ACTUAL_DISK_BYTES)
-          SSH_FILE_NAME=""
-          SSH_FILE_SIZE=""
-          if [[ "$TARGET_ENABLE_SSH" == true ]]; then
-            SSH_OUTPUT="$RUNNER_TEMP/ssh-build.outputs"
-            build_image true "$SSH_OUTPUT"
-            SSH_FILE_NAME=$(read_output "$SSH_OUTPUT" OVA_FILE_NAME)
-            SSH_FILE_SIZE=$(read_output "$SSH_OUTPUT" OVA_FILE_SIZE)
-            if [[ "$(read_output "$SSH_OUTPUT" ACTUAL_DISK_BYTES)" != "$ACTUAL_DISK_BYTES" ]]; then
-              echo "[ERROR] 两种镜像的磁盘容量不一致"; exit 1
+          # 同一系统共用云镜像和 VMDK 缓存；全部成功后统一发布。
+          IMAGE_TABLE="$RUNNER_TEMP/image-table.md"
+          ASSET_LIST="$RUNNER_TEMP/ova-assets.txt"
+          : > "$IMAGE_TABLE"
+          : > "$ASSET_LIST"
+          TARGET_COUNT=0
+          ACTUAL_DISK_BYTES=""
+          while IFS=$'\t' read -r BUILD_LABEL VIRTUAL_SYSTEM_TYPE OVF_OS_ID OVF_OS_TYPE; do
+            TARGET_COUNT=$((TARGET_COUNT + 1))
+            export VIRTUAL_SYSTEM_TYPE OVF_OS_ID OVF_OS_TYPE
+            echo "[INFO] 构建目标 $TARGET_COUNT: $BUILD_LABEL"
+            MODES=(false)
+            if [[ "$TARGET_ENABLE_SSH" == true ]]; then
+              MODES+=(true)
             fi
-          fi
-          echo "[INFO] 默认非 SSH 镜像：$FILE_NAME（$FILE_SIZE）"
-          if [[ -n "$SSH_FILE_NAME" ]]; then
-            echo "[INFO] 附加 SSH 镜像：$SSH_FILE_NAME（$SSH_FILE_SIZE）"
-          fi
+            for mode in "${MODES[@]}"; do
+              OUTPUT="$RUNNER_TEMP/target-${TARGET_COUNT}-${mode}.outputs"
+              build_image "$mode" "$OUTPUT"
+              FILE_NAME=$(read_output "$OUTPUT" OVA_FILE_NAME)
+              FILE_SIZE=$(read_output "$OUTPUT" OVA_FILE_SIZE)
+              DISK_BYTES=$(read_output "$OUTPUT" ACTUAL_DISK_BYTES)
+              if [[ -n "$ACTUAL_DISK_BYTES" && "$DISK_BYTES" != "$ACTUAL_DISK_BYTES" ]]; then
+                echo "::error::批量镜像的磁盘容量不一致"; exit 1
+              fi
+              ACTUAL_DISK_BYTES="$DISK_BYTES"
+              ACTUAL_DISK_GIB=$(read_output "$OUTPUT" ACTUAL_DISK_GIB)
+              if [[ "$mode" == true ]]; then
+                IMAGE_KIND='附加 SSH'; IMAGE_USER=root; IMAGE_LOGIN='SSH 密码登录'
+              else
+                IMAGE_KIND='默认非 SSH'; IMAGE_USER="$LOGIN_USERNAME"; IMAGE_LOGIN='虚拟机控制台'
+              fi
+              printf '%s\n' "$FILE_NAME" >> "$ASSET_LIST"
+              printf '| %s | %s | %s | %s | %s | %s | %s |\n' \
+                "$BUILD_LABEL" "$IMAGE_KIND" "$FILE_NAME" "$IMAGE_USER" "$IMAGE_LOGIN" "$FILE_SIZE" "$ACTUAL_DISK_GIB GB" >> "$IMAGE_TABLE"
+              echo "[INFO] 已生成 $FILE_NAME（$FILE_SIZE）"
+            done
+          done < "$TARGET_PLAN"
 
           # 解析 Debian 官方 build 号（latest 目录页中最大 YYYYMMDD-NNNN），追加到发布标签
           case "$TARGET_VERSION" in
@@ -297,10 +404,9 @@ jobs:
           fi
           echo "[INFO] Debian 官方 build 号：$DEBIAN_BUILD"
 
-          echo "OVA_FILE_NAME=$FILE_NAME" >> "$GITHUB_OUTPUT"
-          echo "OVA_FILE_SIZE=$FILE_SIZE" >> "$GITHUB_OUTPUT"
-          echo "SSH_FILE_NAME=$SSH_FILE_NAME" >> "$GITHUB_OUTPUT"
-          echo "SSH_FILE_SIZE=$SSH_FILE_SIZE" >> "$GITHUB_OUTPUT"
+          echo "IMAGE_TABLE=$IMAGE_TABLE" >> "$GITHUB_OUTPUT"
+          echo "ASSET_LIST=$ASSET_LIST" >> "$GITHUB_OUTPUT"
+          echo "TARGET_COUNT=$TARGET_COUNT" >> "$GITHUB_OUTPUT"
           echo "LOGIN_USERNAME=$LOGIN_USERNAME" >> "$GITHUB_OUTPUT"
           echo "SSH_ENABLED=$TARGET_ENABLE_SSH" >> "$GITHUB_OUTPUT"
           echo "ACTUAL_DISK_GIB=$ACTUAL_DISK_GIB" >> "$GITHUB_OUTPUT"
@@ -310,32 +416,28 @@ jobs:
           echo "DEBIAN_BUILD=$DEBIAN_BUILD" >> "$GITHUB_OUTPUT"
           echo "FINAL_TAG=${DEBIAN_BUILD}" >> "$GITHUB_OUTPUT"
           echo "TARGET_VERSION=$TARGET_VERSION" >> "$GITHUB_OUTPUT"
-          echo "VIRTUAL_SYSTEM_TYPE=$VIRTUAL_SYSTEM_TYPE" >> "$GITHUB_OUTPUT"
 
       - name: 创建 GitHub Release
         # 自定义 if 会替换默认 success() 检查，必须显式带 success()，否则构建失败后仍会执行
         if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_TABLE: ${{ steps.build.outputs.IMAGE_TABLE }}
+          ASSET_LIST: ${{ steps.build.outputs.ASSET_LIST }}
           LOGIN_USERNAME: ${{ steps.build.outputs.LOGIN_USERNAME }}
           SSH_ENABLED: ${{ steps.build.outputs.SSH_ENABLED }}
           ACTUAL_DISK_GIB: ${{ steps.build.outputs.ACTUAL_DISK_GIB }}
           BUILD_VERSION: ${{ steps.build.outputs.TARGET_VERSION }}
           DEBIAN_BUILD: ${{ steps.build.outputs.DEBIAN_BUILD }}
-          OVA_FILE_SIZE: ${{ steps.build.outputs.OVA_FILE_SIZE }}
           BUILD_TIME: ${{ steps.build.outputs.BUILD_TIME }}
           FINAL_TAG: ${{ steps.build.outputs.FINAL_TAG }}
-          OVA_FILE_NAME: ${{ steps.build.outputs.OVA_FILE_NAME }}
-          SSH_FILE_NAME: ${{ steps.build.outputs.SSH_FILE_NAME }}
-          SSH_FILE_SIZE: ${{ steps.build.outputs.SSH_FILE_SIZE }}
           APT_SOURCE_LABEL: ${{ steps.build.outputs.APT_SOURCE_LABEL }}
         run: |
-          ASSETS=("$OVA_FILE_NAME")
-          SSH_ROW=""
-          if [[ -n "$SSH_FILE_NAME" ]]; then
-              ASSETS+=("$SSH_FILE_NAME")
-              SSH_ROW="| 附加 SSH 镜像 | $SSH_FILE_NAME | root | SSH 密码登录 | $SSH_FILE_SIZE |"
+          mapfile -t ASSETS < "$ASSET_LIST"
+          if [[ "${#ASSETS[@]}" -eq 0 ]]; then
+            echo "::error::没有可发布的镜像"; exit 1
           fi
+          IMAGE_ROWS=$(cat "$IMAGE_TABLE")
           RELEASE_NOTES_FILE="$RUNNER_TEMP/release-notes.md"
           cat > "$RELEASE_NOTES_FILE" <<EOF
           ## Debian 云镜像 OVA
@@ -353,10 +455,9 @@ jobs:
           - 默认镜像：**非 SSH（控制台登录）**
           - 构建时间：**${BUILD_TIME}**
 
-          | 镜像 | 文件 | 登录账户 | 登录方式 | 文件大小 |
-          | --- | --- | --- | --- | --- |
-          | 默认非 SSH 镜像 | ${OVA_FILE_NAME} | ${LOGIN_USERNAME} | 虚拟机控制台 | ${OVA_FILE_SIZE} |
-          ${SSH_ROW}
+          | 构建目标 | 镜像 | 文件 | 登录账户 | 登录方式 | 文件大小 | 磁盘大小 |
+          | --- | --- | --- | --- | --- | --- | --- |
+          ${IMAGE_ROWS}
 
           **快速开始：**
           1. 从 Release 资产中下载 OVA 文件
@@ -393,59 +494,28 @@ jobs:
         if: always()
         env:
           BUILD_STATUS: ${{ job.status }}
-          LOGIN_USERNAME: ${{ steps.build.outputs.LOGIN_USERNAME }}
-          SSH_ENABLED: ${{ steps.build.outputs.SSH_ENABLED }}
           ACTUAL_DISK_GIB: ${{ steps.build.outputs.ACTUAL_DISK_GIB }}
-          BUILD_VERSION: ${{ steps.build.outputs.TARGET_VERSION }}
-          DEBIAN_BUILD: ${{ steps.build.outputs.DEBIAN_BUILD }}
-          OVA_FILE_SIZE: ${{ steps.build.outputs.OVA_FILE_SIZE }}
-          BUILD_TIME: ${{ steps.build.outputs.BUILD_TIME }}
-          FINAL_TAG: ${{ steps.build.outputs.FINAL_TAG }}
-          OVA_FILE_NAME: ${{ steps.build.outputs.OVA_FILE_NAME }}
-          SSH_FILE_NAME: ${{ steps.build.outputs.SSH_FILE_NAME }}
-          SSH_FILE_SIZE: ${{ steps.build.outputs.SSH_FILE_SIZE }}
           APT_SOURCE_LABEL: ${{ steps.build.outputs.APT_SOURCE_LABEL }}
+          IMAGE_TABLE: ${{ steps.build.outputs.IMAGE_TABLE }}
+          TARGET_COUNT: ${{ steps.build.outputs.TARGET_COUNT }}
         run: |
-          echo ""
-          echo "[INFO] Debian OVA 构建状态: ${BUILD_STATUS}"
-          echo "[INFO] 版本: ${BUILD_VERSION}"
-          echo "[INFO] vCPU: ${TARGET_VCPU}"
-          echo "[INFO] 内存: ${TARGET_MEMORY}MB"
-          echo "[INFO] 请求磁盘容量: ${TARGET_DISK} GiB"
-          echo "[INFO] 实际磁盘容量: ${ACTUAL_DISK_GIB:-未生成} GiB"
-          echo "[INFO] ESXi 机型: ${TARGET_BUILD}"
-          echo "[INFO] 主机名: ${TARGET_HOSTNAME}"
-          echo "[INFO] 软件源: ${APT_SOURCE_LABEL:-未生成}"
-          echo "[INFO] 安装 open-vm-tools: $TARGET_INSTALL_VM_TOOLS"
-          echo "[INFO] 时区: $TARGET_TIMEZONE"
-          echo "[INFO] 登录账户: ${LOGIN_USERNAME:-未生成}"
-          echo "[INFO] 附加 SSH 镜像: ${SSH_ENABLED:-未生成}"
-          echo "[INFO] 标签: ${FINAL_TAG}"
-          if [ -n "${OVA_FILE_NAME}" ]; then
-            echo "[INFO] 文件: ${OVA_FILE_NAME}"
-            echo "[INFO] 大小: ${OVA_FILE_SIZE}"
-          fi
-          if [[ -n "$SSH_FILE_NAME" ]]; then
-            echo "[INFO] 附加 SSH 镜像: $SSH_FILE_NAME（$SSH_FILE_SIZE）"
-          fi
-          echo ""
-
+          echo "[INFO] Debian OVA 构建状态: $BUILD_STATUS"
           if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
             {
               printf '## Debian %s OVA 构建结果\n\n' "$TARGET_VERSION"
               printf -- '- 状态：%s\n' "$BUILD_STATUS"
+              printf -- '- 构建机型：%s\n' "${TARGET_COUNT:-未完成}"
               printf -- '- 软件源：%s\n' "${APT_SOURCE_LABEL:-未生成}"
               printf -- '- 安装 open-vm-tools：%s\n' "$TARGET_INSTALL_VM_TOOLS"
               printf -- '- 时区：%s\n' "$TARGET_TIMEZONE"
-              printf -- '- 登录账户：%s\n' "${LOGIN_USERNAME:-未生成}"
-              printf -- '- 默认非 SSH 镜像：%s\n' "${OVA_FILE_NAME:-未生成}"
-              printf -- '- 附加 SSH 镜像：%s\n' "${SSH_FILE_NAME:-无}"
               printf -- '- 请求磁盘容量：%s GiB\n' "$TARGET_DISK"
-              if [[ -n "$ACTUAL_DISK_GIB" ]]; then
-                printf -- '- 实际磁盘容量：%s GiB\n' "$ACTUAL_DISK_GIB"
-                printf '\n实际容量按请求容量与源镜像容量中的较大值构建。\n'
+              printf -- '- 实际磁盘容量：%s GiB\n' "${ACTUAL_DISK_GIB:-未生成}"
+              if [[ -n "$IMAGE_TABLE" && -f "$IMAGE_TABLE" ]]; then
+                printf '\n| 构建目标 | 镜像 | 文件 | 登录账户 | 登录方式 | 文件大小 | 磁盘大小 |\n'
+                printf '| --- | --- | --- | --- | --- | --- | --- |\n'
+                cat "$IMAGE_TABLE"
               else
-                printf -- '- 实际磁盘容量：未生成\n'
+                printf '\n构建未完成，请查看失败步骤的错误信息；本次未发布镜像。\n'
               fi
             } >> "$GITHUB_STEP_SUMMARY"
           fi
