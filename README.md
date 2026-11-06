@@ -24,7 +24,7 @@
 
 ## 快速开始（GitHub Actions）
 
-本项目仅支持通过 **GitHub Actions** 构建，不再提供本地构建入口。
+本项目仅支持通过 **GitHub Actions** 构建。
 
 1. 进入项目的 **Actions** 页面。
 2. 选择 **「构建并发布 Debian OVA」** 工作流。
