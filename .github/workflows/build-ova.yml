@@ -234,8 +234,7 @@ jobs:
           - Debian Build 号：**${DEBIAN_BUILD}**
           - vCPU：**${TARGET_VCPU}**
           - 内存：**${TARGET_MEMORY}MB**
-          - 请求磁盘容量：**${TARGET_DISK} GiB**
-          - 实际磁盘容量：**${ACTUAL_DISK_GIB} GiB**
+          - 磁盘大小：**${ACTUAL_DISK_GIB} GB**
           - 主机名：**${TARGET_HOSTNAME}**
           - 默认用户：**${TARGET_USERNAME}**
           - 文件大小：**${OVA_FILE_SIZE}**
