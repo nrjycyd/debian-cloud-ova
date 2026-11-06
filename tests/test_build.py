@@ -33,7 +33,13 @@ class BuildTests(unittest.TestCase):
                 namespace = "{http://schemas.dmtf.org/ovf/envelope/1}"
                 self.assertEqual(int(ovf.find(f"{namespace}DiskSection/{namespace}Disk").get(namespace + "capacity")), expected_bytes)
                 config = yaml.safe_load(archive.extractfile("cidata.iso").read())
-                self.assertEqual(config["ssh_pwauth"], image["kind"] == "ssh")
+                if image["kind"] == "ssh":
+                    self.assertTrue(config["ssh_pwauth"])
+                    self.assertFalse(config["disable_root"])
+                else:
+                    self.assertNotIn("ssh_pwauth", config)
+                    self.assertNotIn("disable_root", config)
+                    self.assertNotIn("openssh-server", config["packages"])
                 self.assertEqual(config["users"][0]["name"], image["username"])
                 self.assertEqual(config["runcmd"][0][1], str(image["kind"] == "ssh").lower())
                 digest_manifest = archive.extractfile(next(x for x in members if x.endswith(".mf"))).read().decode()

@@ -27,9 +27,6 @@ case "$1" in
     systemctl enable ssh.service
     systemctl restart ssh.service
     ;;
-  false)
-    systemctl disable ssh.service
-    systemctl mask --now ssh.service ssh.socket
-    ;;
+  false) ;; # Console variants must not change service or authentication policy.
   *) echo '[ERROR] Invalid SSH mode' >&2; exit 1 ;;
 esac

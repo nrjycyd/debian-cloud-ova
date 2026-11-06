@@ -34,7 +34,7 @@ def release_notes(manifest, password):
 - 软件源：**{MIRRORS[settings['mirror']][0]}**
 - 安装 open-vm-tools：**{str(settings['install_vm_tools']).lower()}**
 - 时区：**{settings['timezone']}**
-- 默认镜像：**非 SSH（控制台登录）**
+- 默认镜像：**console（普通用户，SSH 保持源镜像默认配置）**
 - 构建时间：**{manifest['build_time']}**
 
 {image_table(manifest)}
@@ -43,7 +43,7 @@ def release_notes(manifest, password):
 1. 从 Release 资产中下载 OVA 文件
 2. 导入 VMware 或兼容的虚拟化平台
 3. 开机并使用以下凭据登录：
-   - 默认非 SSH 镜像：通过虚拟机控制台登录，用户名 `{settings['username']}`
+   - console 镜像：通过虚拟机控制台登录，用户名 `{settings['username']}`
    - SSH 镜像（如有）：等待 cloud-init 完成后执行 `ssh root@<虚拟机 IP>`
    - 密码：`{password}`
 

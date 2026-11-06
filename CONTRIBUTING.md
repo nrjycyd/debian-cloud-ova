@@ -42,7 +42,7 @@ shellcheck debian-ova-creator.sh scripts/publish.sh guest/*.sh
 
 - 仅构建 Debian 12/13，机型和 Guest OS 使用目录中的有效组合。
 - console 镜像必建；SSH 开关只增加 root 密码登录镜像。
-- console 的早期 SSH 屏蔽使用 cloud-init-per instance，仅在初始化时执行；用户之后手动启用服务，后续重启不再重放屏蔽命令。
+- console 不注入 ssh_pwauth/disable_root，不主动安装、启停、禁用或屏蔽 SSH，保持官方源镜像的服务和认证默认配置；SSH 镜像才设置 root 和密码登录策略。
 - 磁盘不缩小，实际容量至少为官方源镜像容量。
 - 构建前写入 `/etc/growroot-disabled`；首次启动由 cloud-init 接管扩容。
 - 转换后的 VMDK 在独立只读会话中复核空标记，失败停止打包；成功结果绑定 VMDK 内容摘要并供批量构建复用。

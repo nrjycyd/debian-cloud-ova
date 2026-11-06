@@ -28,14 +28,14 @@ def cloud_config(settings, source, preset, env):
         "settings": {key: value for key, value in settings.items() if key != "password"},
     }
     config = {
-        "users": [user], "ssh_pwauth": ssh, "disable_root": not ssh,
+        "users": [user],
         "timezone": settings["timezone"],
         "growpart": {"mode": "auto", "devices": ["/"], "ignore_growroot_disabled": True},
         "resize_rootfs": True,
         # Validated baseline: Debian 12 cloud-init 22.4.2 and Debian 13.
         "chpasswd": {"users": [{"name": settings["username"], "password": settings["password"], "type": "text"}],
                      "expire": False},
-        "packages": ["cloud-init", "openssh-server", "tzdata"] + (["open-vm-tools"] if settings["install_vm_tools"] else []),
+        "packages": ["cloud-init", "tzdata"] + (["open-vm-tools"] if settings["install_vm_tools"] else []),
         "write_files": [
             guest_file("configure-ssh.sh", "/usr/local/sbin/configure-ova-ssh"),
             guest_file("configure-ova.sh", "/usr/local/sbin/configure-ova"),
@@ -44,14 +44,16 @@ def cloud_config(settings, source, preset, env):
         ],
         "runcmd": [["/usr/local/sbin/configure-ova", str(ssh).lower(), str(settings["install_vm_tools"]).lower()]],
     }
+    # Console variants inherit SSH service and authentication policy from the
+    # source image. Only the explicit SSH variant overrides these defaults.
+    if ssh:
+        config.update(ssh_pwauth=True, disable_root=False)
+        config["packages"].append("openssh-server")
     bootcmd = []
     if settings["mirror"] != "official":
         config["apt"] = {"preserve_sources_list": True, "generate_mirrorlists": False}
         bootcmd.append(["cloud-init-per", "instance", "ova-domestic-apt", "/usr/bin/python3", "-c",
                         (ROOT / "guest/apt-mirrors.py").read_text(encoding="utf-8"), MIRRORS[settings["mirror"]][1]])
-    if not ssh:
-        bootcmd.append(["cloud-init-per", "instance", "ova-disable-ssh", "systemctl", "mask", "--now",
-                        "ssh.service", "ssh.socket"])
     if bootcmd:
         config["bootcmd"] = bootcmd
     return config

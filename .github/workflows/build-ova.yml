@@ -190,7 +190,7 @@ on:
           - 'Europe/Berlin'
           - 'America/New_York'
       username:
-        description: '用户名（非 SSH 镜像）'
+        description: '用户名（console 镜像）'
         required: false
         default: 'debian'
       password:

@@ -43,6 +43,17 @@ class GuestTests(unittest.TestCase):
                             self.assertTrue(config["resize_rootfs"])
                             self.assertEqual(len(config["runcmd"]), 1)
                             self.assertEqual("open-vm-tools" in config["packages"], tools == "true")
+                            if ssh == "true":
+                                self.assertTrue(config["ssh_pwauth"])
+                                self.assertFalse(config["disable_root"])
+                                self.assertIn("openssh-server", config["packages"])
+                            else:
+                                self.assertNotIn("ssh_pwauth", config)
+                                self.assertNotIn("disable_root", config)
+                                self.assertNotIn("openssh-server", config["packages"])
+                                for command in config.get("bootcmd", []):
+                                    self.assertNotIn("ova-disable-ssh", command)
+                                    self.assertNotIn("systemctl", command)
                             if mirror != "official":
                                 self.assertEqual(config["apt"], {"preserve_sources_list": True, "generate_mirrorlists": False})
                                 self.assertIn(MIRRORS[mirror][1], config["bootcmd"][0])
@@ -101,36 +112,36 @@ class GuestTests(unittest.TestCase):
                 # Restore to test the next mirror independently, preserving the first backup.
                 ordinary.write_bytes(original)
 
-    def test_console_mask_is_not_replayed_on_second_boot(self):
+    def test_console_preserves_ssh_state_on_initialization_and_reboot(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            # Use the installed cloud-init-per implementation, relocating only
-            # state and the uid command so no host cloud-init state is touched.
-            per_source = Path("/usr/bin/cloud-init-per").read_text()
-            self.assertIn("/var/lib/cloud", per_source)
-            executable = root / "cloud-init-per"
-            executable.write_text(per_source.replace("/var/lib/cloud", str(root / "cloud")))
-            executable.chmod(0o755)
-            for name, content in {
-                "id": "#!/bin/sh\nprintf '0\\n'\n",
-                "systemctl": '#!/bin/sh\nprintf "masked\\n" > "$STATE"\necho mask >> "$CALLS"\n',
-            }.items():
-                path = root / name
-                path.write_text(content)
-                path.chmod(0o755)
+            helper = root / "ssh-helper"
+            helper.write_text("#!/bin/sh\nexit 77\n")
+            helper.chmod(0o755)
+            bootstrap = root / "bootstrap"
+            bootstrap.write_text((ROOT / "guest/configure-ova.sh").read_text().replace(
+                "/usr/local/sbin/configure-ova-ssh", str(helper)))
+            bootstrap.chmod(0o755)
+            systemctl = root / "systemctl"
+            systemctl.write_text('#!/bin/sh\necho "$*" >> "$CALLS"\ncase "$*" in *ssh*) echo changed > "$STATE";; esac\n')
+            systemctl.chmod(0o755)
+            env = dict(os.environ, PATH=str(root) + ":" + os.environ["PATH"],
+                       STATE=str(root / "state"), CALLS=str(root / "calls"))
             settings = from_environment(environment())
             settings["enable_ssh"] = False
             config = cloud_config(settings, {}, catalog()[3], {})
-            self.assertEqual(config["bootcmd"][0][:3], ["cloud-init-per", "instance", "ova-disable-ssh"])
-            script = util.shellify(config["bootcmd"])
-            env = dict(os.environ, PATH=str(root) + ":" + os.environ["PATH"],
-                       STATE=str(root / "state"), CALLS=str(root / "calls"))
-            subprocess.run(["sh"], input=script, text=True, env=env, check=True)
-            self.assertEqual((root / "state").read_text().strip(), "masked")
-            (root / "state").write_text("enabled manually\n")
-            subprocess.run(["sh"], input=script, text=True, env=env, check=True)
-            self.assertEqual((root / "state").read_text().strip(), "enabled manually")
-            self.assertEqual((root / "calls").read_text().splitlines(), ["mask"])
+            self.assertNotIn("bootcmd", config)
+            self.assertNotIn("ssh_pwauth", config)
+            self.assertNotIn("disable_root", config)
+            for initial in ("active/enabled", "inactive/disabled", "masked"):
+                with self.subTest(initial=initial):
+                    (root / "state").write_text(initial)
+                    for _ in range(2):
+                        script = util.shellify([[str(bootstrap), "false", "false"]])
+                        subprocess.run(["sh"], input=script, text=True, env=env, check=True)
+                        subprocess.run(["sh", str(ROOT / "guest/configure-ssh.sh"), "false"], env=env, check=True)
+                        self.assertEqual((root / "state").read_text(), initial)
+            self.assertEqual((root / "calls").read_text().splitlines(), ["daemon-reload"] * 6)
 
     def test_mirror_no_match_warns_but_idempotency_is_success(self):
         spec = importlib.util.spec_from_file_location("apt_mirrors", ROOT / "guest/apt-mirrors.py")
