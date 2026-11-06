@@ -4,17 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       debian_version:
-        description: 'Debian 系统版本（默认：13）'
+        description: 'Debian 系统版本'
         required: true
         default: '13'
         type: choice
         options:
-          - '10'
           - '11'
           - '12'
           - '13'
       build_target:
-        description: 'ESXi 机型 + Guest OS 标识（DGNU）组合，仅列机型可识别的 DGNU；默认：ESXi 9.0+ + DGNU 13'
+        description: 'ESXi 机型 + Guest OS'
         required: true
         default: 'ESXi 9.0+ + DGNU 13 (vmx-22)'
         type: choice
@@ -45,27 +44,32 @@ on:
           - 'ESXi 9.0+ + DGNU 12 (vmx-22)'
           - 'ESXi 9.0+ + DGNU 13 (vmx-22)'
       vcpu:
-        description: 'vCPU 数量（默认：2）'
+        description: 'vCPU 数量'
         required: false
         default: '2'
       memory:
-        description: '内存大小（MB，默认：1024）'
+        description: '内存大小（MB）'
         required: false
         default: '1024'
       disk_size:
-        description: '磁盘大小（GiB，默认：4；小于源镜像容量时自动采用源镜像容量）'
+        description: '磁盘大小（GB；不足源镜像容量时自动调整）'
         required: false
         default: '4'
       hostname:
-        description: '主机名（默认：debian-cloud）'
+        description: '主机名'
         required: false
         default: 'debian-cloud'
+      enable_ssh:
+        description: '启用 SSH 服务（root 密码登录；仅配置 root，密码使用下方登录密码）'
+        required: false
+        default: false
+        type: boolean
       username:
-        description: '默认用户名（默认：debian）'
+        description: '默认用户名（仅未启用 SSH 时使用）'
         required: false
         default: 'debian'
       password:
-        description: '用户密码（默认：123456）'
+        description: '登录密码（启用 SSH 时用于 root，否则用于默认用户）'
         required: false
         default: '123456'
       # release_tag:
@@ -88,6 +92,7 @@ jobs:
       TARGET_HOSTNAME: ${{ github.event.inputs.hostname }}
       TARGET_USERNAME: ${{ github.event.inputs.username }}
       TARGET_PASSWORD: ${{ github.event.inputs.password }}
+      TARGET_ENABLE_SSH: ${{ inputs.enable_ssh && 'true' || 'false' }}
       # RELEASE_TAG: ${{ github.event.inputs.release_tag }}
 
     steps:
@@ -122,12 +127,20 @@ jobs:
           if ! [[ "${TARGET_PASSWORD}" =~ ^[A-Za-z0-9@#%+=.,_-]+$ ]]; then
               echo "[ERROR] 密码含非法字符（仅允许字母/数字/@#%+=.,_-）"; exit 1
           fi
-          if ! [[ "${TARGET_USERNAME}" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
+          case "$TARGET_ENABLE_SSH" in
+            true) LOGIN_USERNAME=root ;;
+            false) LOGIN_USERNAME="$TARGET_USERNAME" ;;
+            *) echo "[ERROR] SSH 开关必须为 true 或 false"; exit 1 ;;
+          esac
+          if ! [[ "$LOGIN_USERNAME" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
               echo "[ERROR] 用户名不合法（小写字母开头，字母/数字/_/-，≤32 字符）"; exit 1
           fi
+          if [[ "$TARGET_ENABLE_SSH" == false && "$LOGIN_USERNAME" == root ]]; then
+              echo "[ERROR] 未启用 SSH 时请填写普通用户名"; exit 1
+          fi
 
-          # Debian 版本独立输入（10-13），直接使用
-          if ! [[ "$TARGET_VERSION" =~ ^(10|11|12|13)$ ]]; then
+          # Debian 版本独立输入（11-13），直接使用
+          if ! [[ "$TARGET_VERSION" =~ ^(11|12|13)$ ]]; then
               echo "[ERROR] 不支持的 Debian 版本: $TARGET_VERSION"; exit 1
           fi
 
@@ -158,7 +171,8 @@ jobs:
           echo "[INFO] 磁盘: ${TARGET_DISK}GB"
           echo "[INFO] ESXi 机型: $VIRTUAL_SYSTEM_TYPE"
           echo "[INFO] 主机名: ${TARGET_HOSTNAME}"
-          echo "[INFO] 用户名: ${TARGET_USERNAME}"
+          echo "[INFO] 登录账户: $LOGIN_USERNAME"
+          echo "[INFO] SSH 启用: $TARGET_ENABLE_SSH"
 
           # Guest OS 标识：由组合中的 DGNU 直接映射（组合已保证 ≤ 机型可识别上限）
           case "$DGNU_NUM" in
@@ -177,7 +191,8 @@ jobs:
             -s "${TARGET_DISK}" \
             -H "${TARGET_HOSTNAME}" \
             -u "${TARGET_USERNAME}" \
-            -p "${TARGET_PASSWORD}"
+            -p "${TARGET_PASSWORD}" \
+            -S "$TARGET_ENABLE_SSH"
 
           # 查找本次构建生成的 OVA（只匹配新命名格式，不会误选之前的旧版本文件）
           FILE_NAME=$(ls debian*-generic-cloud-*.ova 2>/dev/null | head -1)
@@ -192,7 +207,6 @@ jobs:
 
           # 解析 Debian 官方 build 号（latest 目录页中最大 YYYYMMDD-NNNN），追加到发布标签
           case "$TARGET_VERSION" in
-            10) CODENAME="buster" ;;
             11) CODENAME="bullseye" ;;
             12) CODENAME="bookworm" ;;
             13) CODENAME="trixie" ;;
@@ -217,6 +231,8 @@ jobs:
         if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LOGIN_USERNAME: ${{ steps.build.outputs.LOGIN_USERNAME }}
+          SSH_ENABLED: ${{ steps.build.outputs.SSH_ENABLED }}
           ACTUAL_DISK_GIB: ${{ steps.build.outputs.ACTUAL_DISK_GIB }}
           BUILD_VERSION: ${{ steps.build.outputs.TARGET_VERSION }}
           DEBIAN_BUILD: ${{ steps.build.outputs.DEBIAN_BUILD }}
@@ -225,6 +241,11 @@ jobs:
           FINAL_TAG: ${{ steps.build.outputs.FINAL_TAG }}
           OVA_FILE_NAME: ${{ steps.build.outputs.OVA_FILE_NAME }}
         run: |
+          if [[ "$SSH_ENABLED" == true ]]; then
+              LOGIN_METHOD='SSH 登录：ssh root@<虚拟机 IP>（等待 cloud-init 完成）'
+          else
+              LOGIN_METHOD='通过虚拟机控制台登录；SSH 服务已关闭'
+          fi
           RELEASE_NOTES_FILE="$RUNNER_TEMP/release-notes.md"
           cat > "$RELEASE_NOTES_FILE" <<EOF
           ## Debian 云镜像 OVA
@@ -236,7 +257,9 @@ jobs:
           - 内存：**${TARGET_MEMORY}MB**
           - 磁盘大小：**${ACTUAL_DISK_GIB} GB**
           - 主机名：**${TARGET_HOSTNAME}**
-          - 默认用户：**${TARGET_USERNAME}**
+          - 登录账户：**${LOGIN_USERNAME}**
+          - SSH 启用：**${SSH_ENABLED}**
+          - 镜像文件：\`${OVA_FILE_NAME}\`
           - 文件大小：**${OVA_FILE_SIZE}**
           - 构建时间：**${BUILD_TIME}**
 
@@ -244,12 +267,13 @@ jobs:
           1. 从 Release 资产中下载 OVA 文件
           2. 导入 VMware 或兼容的虚拟化平台
           3. 开机并使用以下凭据登录：
-             - 用户名：\`${TARGET_USERNAME}\`
+             - 登录方式：${LOGIN_METHOD}
+             - 用户名：\`${LOGIN_USERNAME}\`
              - 密码：\`${TARGET_PASSWORD}\`
 
           **Cloud-Init 支持：**
           - 自定义主机名配置
-          - 创建带 sudo 权限的用户账户
+          - 按 SSH 开关配置 root 或普通用户
           - 执行 user-data 脚本
           EOF
 
@@ -257,6 +281,15 @@ jobs:
           if gh release view "${FINAL_TAG}" >/dev/null 2>&1; then
               gh release upload "${FINAL_TAG}" \
                 "${OVA_FILE_NAME}" --clobber
+              # 同一标签可能包含两种登录模式，保留原说明并追加本次镜像的登录信息。
+              EXISTING_NOTES_FILE="$RUNNER_TEMP/existing-release-notes.md"
+              gh release view "$FINAL_TAG" --json body --jq .body > "$EXISTING_NOTES_FILE"
+              {
+                cat "$EXISTING_NOTES_FILE"
+                printf '\n\n---\n\n### %s\n\n' "$OVA_FILE_NAME"
+                cat "$RELEASE_NOTES_FILE"
+              } > "$RUNNER_TEMP/merged-release-notes.md"
+              gh release edit "$FINAL_TAG" --notes-file "$RUNNER_TEMP/merged-release-notes.md"
               echo "[INFO] Release 已存在，OVA 已追加：${OVA_FILE_NAME}"
           else
               gh release create "${FINAL_TAG}" \
@@ -270,6 +303,8 @@ jobs:
         if: always()
         env:
           BUILD_STATUS: ${{ job.status }}
+          LOGIN_USERNAME: ${{ steps.build.outputs.LOGIN_USERNAME }}
+          SSH_ENABLED: ${{ steps.build.outputs.SSH_ENABLED }}
           ACTUAL_DISK_GIB: ${{ steps.build.outputs.ACTUAL_DISK_GIB }}
           BUILD_VERSION: ${{ steps.build.outputs.TARGET_VERSION }}
           DEBIAN_BUILD: ${{ steps.build.outputs.DEBIAN_BUILD }}
@@ -287,7 +322,8 @@ jobs:
           echo "[INFO] 实际磁盘容量: ${ACTUAL_DISK_GIB:-未生成} GiB"
           echo "[INFO] ESXi 机型: ${TARGET_BUILD}"
           echo "[INFO] 主机名: ${TARGET_HOSTNAME}"
-          echo "[INFO] 用户名: ${TARGET_USERNAME}"
+          echo "[INFO] 登录账户: ${LOGIN_USERNAME:-未生成}"
+          echo "[INFO] SSH 启用: ${SSH_ENABLED:-未生成}"
           echo "[INFO] 标签: ${FINAL_TAG}"
           if [ -n "${OVA_FILE_NAME}" ]; then
             echo "[INFO] 文件: ${OVA_FILE_NAME}"
@@ -299,6 +335,8 @@ jobs:
             {
               printf '## Debian OVA 构建结果\n\n'
               printf -- '- 状态：%s\n' "$BUILD_STATUS"
+              printf -- '- 登录账户：%s\n' "${LOGIN_USERNAME:-未生成}"
+              printf -- '- SSH 启用：%s\n' "${SSH_ENABLED:-未生成}"
               printf -- '- 请求磁盘容量：%s GiB\n' "$TARGET_DISK"
               if [[ -n "$ACTUAL_DISK_GIB" ]]; then
                 printf -- '- 实际磁盘容量：%s GiB\n' "$ACTUAL_DISK_GIB"

@@ -11,6 +11,7 @@ disk_size_gb=10
 hostname="debian-cloud"
 username="debian"
 password="123456"
+enable_ssh="false"
 
 show_help() {
     cat << 'EOF'
@@ -28,8 +29,9 @@ Hardware Options:
 
 Account Options:
   -H <hostname>        Hostname (default: debian-cloud)
-  -u <username>        Default username (default: debian)
-  -p <password>        User password (default: 123456)
+  -u <username>        Console username when SSH is disabled (default: debian)
+  -p <password>        Login password; used for root when SSH is enabled (default: 123456)
+  -S <true|false>      Enable SSH with root password login (default: false)
 
 Other Options:
   -h                   Show this help message
@@ -62,7 +64,7 @@ print(size)
 }
 
 # Parse command line arguments
-while getopts ":d:c:m:s:H:u:p:h" opt; do
+while getopts ":d:c:m:s:H:u:p:S:h" opt; do
     case "$opt" in
         d) debver="$OPTARG" ;;
         c) vcpu="$OPTARG" ;;
@@ -71,6 +73,7 @@ while getopts ":d:c:m:s:H:u:p:h" opt; do
         H) hostname="$OPTARG" ;;
         u) username="$OPTARG" ;;
         p) password="$OPTARG" ;;
+        S) enable_ssh="$OPTARG" ;;
         h) show_help; exit 0 ;;
         :) echo "[ERROR] Option -$OPTARG requires an argument" >&2; exit 1 ;;
         \?) echo "[ERROR] Invalid option -$OPTARG" >&2; exit 1 ;;
@@ -104,6 +107,16 @@ fi
 disk_size_gb=$((10#$disk_size_gb))
 
 # Validate username/password characters（防换行符注入 chpasswd / YAML 破坏）
+case "$enable_ssh" in
+    true) username="root" ;;
+    false)
+        if [[ "$username" == "root" ]]; then
+            echo "[ERROR] SSH 关闭时请使用普通用户名；root 登录请选择 -S true。" >&2
+            exit 1
+        fi
+        ;;
+    *) echo "[ERROR] SSH option must be true or false" >&2; exit 1 ;;
+esac
 if ! [[ "$username" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
     echo "[ERROR] Username must match [a-z_][a-z0-9_-]{0,31}" >&2
     exit 1
@@ -115,10 +128,6 @@ fi
 
 # Map Debian version to codename
 case "$debver" in
-    10|buster)
-        debver="10"
-        debcodename="buster"
-        ;;
     11|bullseye)
         debver="11"
         debcodename="bullseye"
@@ -153,12 +162,7 @@ DEBIAN_ARCH="${debarch}"
 # 8.0  -> vmx-20
 VIRTUAL_SYSTEM_TYPE="${VIRTUAL_SYSTEM_TYPE:-vmx-14}" # 默认 vmx-14 (esxi6.7)
 
-# Debian 10 及更早的云端镜像命名为 generic（genericcloud 命名自 Debian 11 起）
-if [ "$DEBIAN_VERSION" = "10" ]; then
-    FILE_NAME="debian-10-generic-${DEBIAN_ARCH}"
-else
-    FILE_NAME="debian-${DEBIAN_VERSION}-genericcloud-${DEBIAN_ARCH}"
-fi
+FILE_NAME="debian-${DEBIAN_VERSION}-genericcloud-${DEBIAN_ARCH}"
 
 # 固件显示名（仅影响最终 OVA 文件名，下载/内部引用仍用 FILE_NAME）
 case "${VIRTUAL_SYSTEM_TYPE%% *}" in
@@ -173,11 +177,9 @@ FILE_DEST_EXT="vmdk"
 FILE_SIGN_EXT="mf"
 FILE_ORIG_URL="https://cloud.debian.org/images/cloud/${DEBIAN_NAME}/latest/${FILE_NAME}.${FILE_ORIG_EXT}"
 
-# 默认 osType（可由环境变量覆盖，workflow 始终显式传值）；Debian 10 用 101/debian10_64Guest
-case "${DEBIAN_VERSION}" in
-  10) OVF_OS_ID="${OVF_OS_ID:-101}"; OVF_OS_TYPE="${OVF_OS_TYPE:-debian10_64Guest}" ;;
-  *)  OVF_OS_ID="${OVF_OS_ID:-96}";  OVF_OS_TYPE="${OVF_OS_TYPE:-debian11_64Guest}" ;;
-esac
+# 默认 Guest OS 标识（可由 workflow 按 ESXi 兼容性覆盖，与系统版本独立）
+OVF_OS_ID="${OVF_OS_ID:-96}"
+OVF_OS_TYPE="${OVF_OS_TYPE:-debian11_64Guest}"
 
 # Guest OS 显示标识（dgnuXX，由 OVF_OS_TYPE 推导，仅影响最终 OVA 文件名）
 case "${OVF_OS_TYPE}" in
@@ -192,6 +194,11 @@ esac
 VMX_NUM="${VIRTUAL_SYSTEM_TYPE%% *}"
 VMX_NUM="${VMX_NUM#vmx-}"
 OUTPUT_NAME="debian${DEBIAN_VERSION}-generic-cloud-${ESXI_TAG}-vmx${VMX_NUM}-${GUEST_TAG}-${DEBIAN_ARCH}"
+if [[ "$enable_ssh" == "true" ]]; then
+    OUTPUT_NAME="${OUTPUT_NAME}-ssh"
+else
+    OUTPUT_NAME="${OUTPUT_NAME}-console"
+fi
 
 CURRENT_DATE=$(date +%Y%m%d)
 disk_size_bytes=$((disk_size_gb * 1073741824))
@@ -204,6 +211,7 @@ echo "[INFO] Memory: ${memory}MB"
 echo "[INFO] Disk: ${disk_size_gb}GB"
 echo "[INFO] Hostname: $hostname"
 echo "[INFO] Username: $username"
+echo "[INFO] SSH Enabled: $enable_ssh"
 echo ""
 
 # --- 区域 1: ConfigDrive ISO 生成 (NoCloud 模式) ---
@@ -217,13 +225,21 @@ cat > "$CLOUD_CONFIG_FILE" << 'EOFCONFIG'
 #cloud-config
 EOFCONFIG
 
-if [[ -n "$username" ]]; then
-    cat >> "$CLOUD_CONFIG_FILE" << EOFCONFIG
+cat >> "$CLOUD_CONFIG_FILE" << EOFCONFIG
 users:
   - name: $username
-    sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
     lock_passwd: false
+EOFCONFIG
+if [[ "$enable_ssh" == "false" ]]; then
+    cat >> "$CLOUD_CONFIG_FILE" << 'EOFCONFIG'
+    sudo: ALL=(ALL) NOPASSWD:ALL
+EOFCONFIG
+fi
+cat >> "$CLOUD_CONFIG_FILE" << EOFCONFIG
+
+ssh_pwauth: $enable_ssh
+disable_root: $([[ "$enable_ssh" == "true" ]] && echo false || echo true)
 
 chpasswd:
   list: |
@@ -233,14 +249,70 @@ chpasswd:
 packages:
   - cloud-init
   - open-vm-tools
+  - openssh-server
+EOFCONFIG
+
+# 关闭模式在启动早期即屏蔽服务和 socket，避免安装包启动 SSH。
+if [[ "$enable_ssh" == "false" ]]; then
+    cat >> "$CLOUD_CONFIG_FILE" << 'EOFCONFIG'
+
+bootcmd:
+  - [ systemctl, mask, --now, ssh.service, ssh.socket ]
+EOFCONFIG
+fi
+cat >> "$CLOUD_CONFIG_FILE" << 'EOFCONFIG'
+
+write_files:
+  - path: /usr/local/sbin/configure-ova-ssh
+    owner: root:root
+    permissions: '0700'
+    content: |
+      #!/bin/sh
+      set -eu
+      case "$1" in
+        true)
+          config=/etc/ssh/sshd_config
+          if [ ! -f "$config.ova-backup" ]; then
+            cp -p "$config" "$config.ova-backup"
+          fi
+          # 在主配置开头设置，确保先于其他配置文件中的默认认证选项生效。
+          sed -i '/^# BEGIN OVA SSH$/,/^# END OVA SSH$/d' "$config"
+          temp_config=$(mktemp)
+          trap 'rm -f "$temp_config"' EXIT
+          {
+            printf '%s\n' '# BEGIN OVA SSH' 'PermitRootLogin yes' 'PasswordAuthentication yes' '# END OVA SSH'
+            cat "$config"
+          } > "$temp_config"
+          install -m 0600 "$temp_config" "$config"
+          mkdir -p /run/sshd
+          ssh-keygen -A
+          /usr/sbin/sshd -t
+          effective=$(/usr/sbin/sshd -T -C user=root,host=localhost,addr=127.0.0.1)
+          printf '%s\n' "$effective" | grep -qx 'permitrootlogin yes'
+          printf '%s\n' "$effective" | grep -qx 'passwordauthentication yes'
+          systemctl mask --now ssh.socket
+          systemctl unmask ssh.service
+          systemctl enable ssh.service
+          systemctl restart ssh.service
+          ;;
+        false)
+          systemctl disable ssh.service
+          systemctl mask --now ssh.service ssh.socket
+          ;;
+        *) echo '[ERROR] Invalid SSH mode' >&2; exit 1 ;;
+      esac
 
 runcmd:
+EOFCONFIG
+cat >> "$CLOUD_CONFIG_FILE" << EOFCONFIG
+  - [ /usr/local/sbin/configure-ova-ssh, "$enable_ssh" ]
+EOFCONFIG
+cat >> "$CLOUD_CONFIG_FILE" << 'EOFCONFIG'
   - [ systemctl, daemon-reload ]
   - [ systemctl, enable, open-vm-tools ]
   - [ systemctl, start, open-vm-tools ]
 EOFCONFIG
 
-fi
 # --- User-Data 结束 ---
 
 # 2. Meta-data (必须包含 instance-id 和 hostname)
@@ -457,10 +529,12 @@ echo "[INFO] Requested Disk: ${disk_size_gb} GiB"
 echo "[INFO] Actual Disk: ${ACTUAL_DISK_GIB} GiB"
 echo "[INFO] Hostname: ${hostname}"
 echo "[INFO] Default User: ${username}"
+echo "[INFO] SSH Enabled: ${enable_ssh}"
 echo "[INFO] Config Method: NoCloud/ConfigDrive (ISO)"
 echo "[INFO] Auto Start: Disabled"
 echo ""
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     printf 'ACTUAL_DISK_GIB=%s\nACTUAL_DISK_BYTES=%s\n' "$ACTUAL_DISK_GIB" "$TARGET_BYTES" >> "$GITHUB_OUTPUT"
+    printf 'LOGIN_USERNAME=%s\nSSH_ENABLED=%s\n' "$username" "$enable_ssh" >> "$GITHUB_OUTPUT"
 fi
