@@ -4,17 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       debian_11:
-        description: '构建 Debian 11'
+        description: 'Debian 11'
         required: false
         default: false
         type: boolean
       debian_12:
-        description: '构建 Debian 12'
+        description: 'Debian 12'
         required: false
         default: false
         type: boolean
       debian_13:
-        description: '构建 Debian 13'
+        description: 'Debian 13'
         required: false
         default: true
         type: boolean
@@ -50,15 +50,15 @@ on:
           - 'ESXi 9.0+ + DGNU 12 (vmx-22)'
           - 'ESXi 9.0+ + DGNU 13 (vmx-22)'
       vcpu:
-        description: 'vCPU 数量'
+        description: 'vCPU'
         required: false
         default: '2'
       memory:
-        description: '内存大小（MB）'
+        description: '内存（MB）'
         required: false
         default: '1024'
       disk_size:
-        description: '磁盘大小（GB；不足源镜像容量时自动调整）'
+        description: '磁盘（GB）'
         required: false
         default: '4'
       hostname:
@@ -66,16 +66,16 @@ on:
         required: false
         default: 'debian-cloud'
       enable_ssh:
-        description: '启用 SSH 服务（root 密码登录；仅配置 root，密码使用下方登录密码）'
+        description: '启用 SSH（root 密码登录）'
         required: false
         default: false
         type: boolean
       username:
-        description: '默认用户名（仅未启用 SSH 时使用）'
+        description: '用户名（SSH 关闭时）'
         required: false
         default: 'debian'
       password:
-        description: '登录密码（启用 SSH 时用于 root，否则用于默认用户）'
+        description: '登录密码'
         required: false
         default: '123456'
       # release_tag:
