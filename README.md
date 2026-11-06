@@ -17,7 +17,7 @@
 - **多版本支持**：Debian 12 (Bookworm)、13 (Trixie)，每次选择一个系统构建。Guest OS 标识（DGNU）按 ESXi 兼容性选择，与实际系统版本独立。
 - **机型精确匹配**：通过四个下拉框一次选择最多四种 ESXi + Guest OS 组合，保留全部预设选项，重复组合自动去重。
 - **硬件定制**：构建时可自定义 vCPU、内存和磁盘大小（输入最小 2 GiB；小于源镜像实际虚拟容量时，自动采用源镜像容量继续构建）。
-- **自动化发布**：GitHub Actions 一键构建，并自动以 Debian 官方 build 号为标签发布 Release。
+- **自动化发布**：通过 GitHub Actions 构建并发布到 Releases。
 - **Cloud-Init**：自动配置主机名、登录账户、密码和 SSH 状态。
 
 ---
@@ -51,9 +51,9 @@
 
 5. 构建完成后，在 **Releases** 页面下载生成的 `.ova` 文件。
 
-每次选择一个 Debian 版本（默认 13），最多构建四种机型。附加机型可选“不构建”，重复选择自动去重，各机型共用自定义参数。全部成功后统一发布，Release 保留一份构建说明及历史下载资产。
+每次选择一个 Debian 版本（默认 13），最多构建四种机型。附加机型可选“不构建”，重复选择自动去重，各机型共用自定义参数。
 
-磁盘小于源镜像容量时自动调整，Release 显示实际大小；首次启动由 cloud-init 完成分区和文件系统扩容，无需添加串口。
+磁盘小于源镜像容量时自动调整，实际大小见 Release；首次启动自动扩展分区和文件系统。
 
 ### SSH 与登录方式
 
@@ -118,9 +118,7 @@ sudo chage -d 0 debian
 
 - **官方源（默认）**：保留官方镜像的软件源配置。
 - **选择中国软件源**：首次启动时将已有 Debian 官方普通软件源地址替换为所选镜像站，安全更新仍使用 `https://security.debian.org/debian-security`。
-- 换源在 cloud-init 的 APT 配置和软件包安装前执行，适用于默认非 SSH 镜像及附加 SSH 镜像。选择非官方源时同时禁止重新生成 sources.list 和 mirror 地址文件，避免所选源被后续 APT 配置覆盖。
-- 仅修改 `/etc/apt/mirrors/*.list` 中已有的 Debian 官方源地址，跳过符号链接；不改动 `sources.list`、`sources.list.d` 或其他文件。原文件备份在 `/etc/apt/ova-source-backups/mirrors/`，不额外添加源。
-- 构建日志、摘要及 Release 说明标明本次软件源设置。GitHub runner 的 Ubuntu 源和官方云镜像下载地址不受此选项影响。
+- 源地址文件位于 `/etc/apt/mirrors/*.list`，原文件备份在 `/etc/apt/ova-source-backups/mirrors/`。
 
 | 选项 | 普通软件源地址 |
 | --- | --- |
