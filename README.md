@@ -129,7 +129,7 @@ sudo chage -d 0 debian
 | 阿里云 | `https://mirrors.aliyun.com/debian` |
 | 华为云 | `https://repo.huaweicloud.com/debian` |
 
-console 模式下，等待首次初始化完成后，可在虚拟机控制台执行以下命令手动改源（以清华大学为例）：
+官方源手动改源（以清华大学为例）：
 
 ```bash
 sudo cp -a /etc/apt/mirrors/debian.list "/etc/apt/mirrors/debian.list.$(date +%Y%m%d_%H%M%S).bak"
