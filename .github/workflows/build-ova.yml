@@ -282,20 +282,15 @@ jobs:
           if gh release view "${FINAL_TAG}" >/dev/null 2>&1; then
               gh release upload "${FINAL_TAG}" \
                 "${OVA_FILE_NAME}" --clobber
-              # 同一标签可能包含两种登录模式，保留原说明并追加本次镜像的登录信息。
-              EXISTING_NOTES_FILE="$RUNNER_TEMP/existing-release-notes.md"
-              gh release view "$FINAL_TAG" --json body --jq .body > "$EXISTING_NOTES_FILE"
-              {
-                cat "$EXISTING_NOTES_FILE"
-                printf '\n\n---\n\n### %s\n\n' "$OVA_FILE_NAME"
-                cat "$RELEASE_NOTES_FILE"
-              } > "$RUNNER_TEMP/merged-release-notes.md"
-              gh release edit "$FINAL_TAG" --notes-file "$RUNNER_TEMP/merged-release-notes.md"
+              # 每次只展示最新成功构建的一份完整说明，历史下载资产保留。
+              gh release edit "$FINAL_TAG" \
+                --title "Debian ${BUILD_VERSION} OVA - ${FINAL_TAG}" \
+                --notes-file "$RELEASE_NOTES_FILE"
               echo "[INFO] Release 已存在，OVA 已追加：${OVA_FILE_NAME}"
           else
               gh release create "${FINAL_TAG}" \
                 "${OVA_FILE_NAME}" \
-                --title "Debian OVA - ${FINAL_TAG}" \
+                --title "Debian ${BUILD_VERSION} OVA - ${FINAL_TAG}" \
                 --notes-file "$RELEASE_NOTES_FILE"
               echo "[INFO] Release 创建完成：${FINAL_TAG}"
           fi

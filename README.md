@@ -54,7 +54,7 @@
 - **未启用 SSH（默认）**：创建指定的普通用户，供虚拟机控制台登录；首次启动时停止并屏蔽 SSH 服务和 socket。
 - **启用 SSH**：仅配置 root 账户，使用面板中的登录密码；设置 `PermitRootLogin yes`、`PasswordAuthentication yes`，启动 SSH 并设置开机启动。不主动删除镜像可能已有的其他账户。
 - 等待首次启动的 cloud-init 完成后，再使用 `ssh root@<虚拟机 IP>` 登录；需有可用网络和可达的 22 端口。配置失败可在控制台查看 `cloud-init status --long` 和 `/var/log/cloud-init-output.log`。
-- 镜像文件名分别以 `-ssh.ova`、`-console.ova` 结尾，避免两种模式的资产相互覆盖。已有 Release 保留原说明，并追加本次镜像的账户和 SSH 状态。
+- 镜像文件名分别以 `-ssh.ova`、`-console.ova` 结尾，避免两种模式的资产相互覆盖。已有 Release 的说明更新为最近一次成功构建的信息，只保留一份完整说明；历史下载资产保留。说明中的配置与凭据对应其中标明的镜像文件。
 
 
 ---
