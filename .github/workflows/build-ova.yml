@@ -3,15 +3,21 @@ name: 构建并发布 Debian OVA
 on:
   workflow_dispatch:
     inputs:
-      debian_version:
-        description: 'Debian 系统版本'
-        required: true
-        default: '13'
-        type: choice
-        options:
-          - '11'
-          - '12'
-          - '13'
+      debian_11:
+        description: '构建 Debian 11'
+        required: false
+        default: false
+        type: boolean
+      debian_12:
+        description: '构建 Debian 12'
+        required: false
+        default: false
+        type: boolean
+      debian_13:
+        description: '构建 Debian 13'
+        required: false
+        default: true
+        type: boolean
       build_target:
         description: 'ESXi 机型 + Guest OS'
         required: true
@@ -78,13 +84,58 @@ on:
       #   default: 'v1.0.0'
 
 jobs:
-  build_ova:
+  select_versions:
+    name: 选择构建系统
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      versions: ${{ steps.select.outputs.versions }}
+    steps:
+      - name: 检查系统选择
+        id: select
+        env:
+          BUILD_DEBIAN_11: ${{ inputs.debian_11 && 'true' || 'false' }}
+          BUILD_DEBIAN_12: ${{ inputs.debian_12 && 'true' || 'false' }}
+          BUILD_DEBIAN_13: ${{ inputs.debian_13 && 'true' || 'false' }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          versions = [version for version in ("11", "12", "13")
+                      if os.environ["BUILD_DEBIAN_" + version] == "true"]
+          if not versions:
+              message = "请至少勾选一个 Debian 系统版本。"
+              print("::error title=未选择构建系统::" + message)
+              with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+                  summary.write("## 无法开始构建\n\n" + message + "\n")
+              sys.exit(1)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("versions=" + json.dumps(versions) + "\n")
+          selected = "、".join("Debian " + version for version in versions)
+          print("[INFO] 已选择：" + selected)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write("## 构建计划\n\n已选择：" + selected
+                            + "\n\n各版本依次构建和发布；一个版本失败不会取消其他版本。\n")
+          PY
+
+  build_ova:
+    name: 构建 Debian ${{ matrix.debian_version }}
+    needs: select_versions
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      # 每个版本独立运行；同批次依次发布，避免同时修改同一 Release。
+      max-parallel: 1
+      matrix:
+        debian_version: ${{ fromJSON(needs.select_versions.outputs.versions) }}
     permissions:
       contents: write   # 创建 Release 需要写 contents（新仓库默认只读 token 会 403）
 
     env:
-      TARGET_VERSION: ${{ github.event.inputs.debian_version }}
+      TARGET_VERSION: ${{ matrix.debian_version }}
       TARGET_BUILD: ${{ github.event.inputs.build_target }}
       TARGET_VCPU: ${{ github.event.inputs.vcpu }}
       TARGET_MEMORY: ${{ github.event.inputs.memory }}
@@ -139,7 +190,7 @@ jobs:
               echo "[ERROR] 未启用 SSH 时请填写普通用户名"; exit 1
           fi
 
-          # Debian 版本独立输入（11-13），直接使用
+          # 校验本次矩阵任务的系统版本。
           if ! [[ "$TARGET_VERSION" =~ ^(11|12|13)$ ]]; then
               echo "[ERROR] 不支持的 Debian 版本: $TARGET_VERSION"; exit 1
           fi
@@ -294,7 +345,7 @@ jobs:
           else
               gh release create "${FINAL_TAG}" \
                 "${OVA_FILE_NAME}" \
-                --title "Debian ${BUILD_VERSION} OVA - ${FINAL_TAG}" \
+                --title "Debian OVA - ${FINAL_TAG}" \
                 --notes-file "$RELEASE_NOTES_FILE"
               echo "[INFO] Release 创建完成：${FINAL_TAG}"
           fi
@@ -333,7 +384,7 @@ jobs:
 
           if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
             {
-              printf '## Debian OVA 构建结果\n\n'
+              printf '## Debian %s OVA 构建结果\n\n' "$TARGET_VERSION"
               printf -- '- 状态：%s\n' "$BUILD_STATUS"
               printf -- '- 登录账户：%s\n' "${LOGIN_USERNAME:-未生成}"
               printf -- '- SSH 启用：%s\n' "${SSH_ENABLED:-未生成}"
