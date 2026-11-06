@@ -10,6 +10,7 @@ from pathlib import Path
 from config import MIRRORS, ROOT, from_environment, select_targets
 from source import download, resolve
 from release import policy
+from manifest import validate as validate_manifest
 
 
 def write_outputs(path, values):
@@ -65,6 +66,7 @@ def run_batch(env):
                 "disk_gib": values["ACTUAL_DISK_GIB"],
             })
     manifest["build_time"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    validate_manifest(manifest)
     path = work / "build-manifest.json"
     path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
     write_outputs(env["GITHUB_OUTPUT"], {"BUILD_MANIFEST": path, "FINAL_TAG": release["tag"]})

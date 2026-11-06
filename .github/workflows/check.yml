@@ -17,7 +17,11 @@ jobs:
       - name: 安装检查依赖
         run: |
           sudo apt update -qq
-          sudo apt install -y --no-install-recommends python3-yaml cloud-init shellcheck
+          sudo apt install -y --no-install-recommends python3-yaml cloud-init shellcheck python3-venv
+          /usr/bin/python3 -m venv "$RUNNER_TEMP/check-venv"
+          "$RUNNER_TEMP/check-venv/bin/python" -m pip install --disable-pip-version-check -r requirements-check.txt
+      - name: Python 静态检查
+        run: '"$RUNNER_TEMP/check-venv/bin/python" -m pyflakes scripts guest tests'
       - name: 检查脚本和机型面板
         run: |
           /usr/bin/python3 scripts/check-environment.py

@@ -30,7 +30,7 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(inputs["timezone"]["options"], list(TIMEZONES))
         self.assertFalse(workflow["concurrency"]["cancel-in-progress"])
         self.assertEqual(workflow["concurrency"]["queue"], "max")
-        self.assertIn("github.ref", workflow["concurrency"]["group"])
+        self.assertNotIn("github.ref", workflow["concurrency"]["group"])
         validate_panel((ROOT / ".github/workflows/build-ova.yml").read_text())
         steps = workflow["jobs"]["build_ova"]["steps"]
         publish = next(step for step in steps if step.get("name") == "创建 GitHub Release")
@@ -55,12 +55,10 @@ class PanelTests(unittest.TestCase):
                 validate_panel(yaml.safe_dump(workflow))
             inputs[name]["options"].pop()
 
-    def test_release_channels(self):
+    def test_only_main_can_publish(self):
         self.assertEqual(policy("refs/heads/main", "12", "20261106-1234"),
                          {"tag": "20261106-1234", "prerelease": False})
-        self.assertEqual(policy("refs/heads/test", "12", "20261106-1234"),
-                         {"tag": "test-debian12-20261106-1234", "prerelease": True})
-        for ref in ("", "refs/heads/feature", "refs/tags/test", "refs/pull/1/merge"):
+        for ref in ("", "refs/heads/test", "refs/heads/feature", "refs/tags/test", "refs/pull/1/merge"):
             with self.assertRaises(ValueError):
                 policy(ref, "12", "20261106-1234")
 
@@ -68,7 +66,6 @@ class PanelTests(unittest.TestCase):
 class PublishTests(unittest.TestCase):
     def test_existing_new_raced_and_failed_publications(self):
         self.publish_modes("refs/heads/main")
-        self.publish_modes("refs/heads/test")
 
     def publish_modes(self, ref):
         for mode, expected in (("new", ["view", "create"]),
@@ -88,13 +85,9 @@ history = log.read_text().splitlines() if log.exists() else []
 with log.open('a') as output: output.write(command + '\\n')
 mode = os.environ['TEST_RELEASE_MODE']
 tag = sys.argv[3]
-if os.environ['GITHUB_REF'] == 'refs/heads/test':
-    assert tag.startswith('test-debian12-')
-    if command in ('create', 'edit'):
-        assert '--prerelease' in sys.argv and '--latest=false' in sys.argv
-else:
-    assert tag == '20261106-1234'
-    if command in ('create', 'edit'): assert '--prerelease=false' in sys.argv
+assert tag == '20261106-1234'
+assert os.environ['GITHUB_REF'] == 'refs/heads/main'
+if command in ('create', 'edit'): assert '--prerelease=false' in sys.argv
 if command == 'view': sys.exit(0 if mode in ('existing', 'upload-error') or (mode == 'race' and history) else 1)
 if command == 'create':
     assert '--target' in sys.argv and os.environ['GITHUB_SHA'] in sys.argv
@@ -105,13 +98,13 @@ if command == 'upload': sys.exit(1 if mode == 'upload-error' else 0)
                 executable.chmod(0o755)
                 asset = work / "test-console.ova"
                 asset.touch()
-                manifest = {"settings": {"version": "12", "vcpu": 2, "memory": 1024, "hostname": "test",
+                manifest = {"settings": {"version": "12", "vcpu": 2, "memory": 1024, "disk": 4, "hostname": "test",
                                          "username": "debian", "mirror": "official", "install_vm_tools": True,
                                          "timezone": "UTC"},
-                            "source": {"build": "20261106-1234"}, "build_time": "now",
+                            "source": {"build": "20261106-1234"}, "build_time": "now", "target_count": 1,
                             "release": policy(ref, "12", "20261106-1234"),
                             "images": [{"target": "ESXi 7", "kind": "console", "filename": asset.name,
-                                        "username": "debian", "size": "320M", "disk_gib": "4.00"}]}
+                                        "username": "debian", "size": "320M", "disk_gib": "4.00", "disk_bytes": 4294967296}]}
                 manifest_path = work / "manifest.json"
                 manifest_path.write_text(json.dumps(manifest))
                 env = dict(os.environ, PATH=str(work) + ":" + os.environ["PATH"], RUNNER_TEMP=str(work),
@@ -126,11 +119,25 @@ if command == 'upload': sys.exit(1 if mode == 'upload-error' else 0)
                     self.assertIn("CREATE_ORIGINAL_403", result.stderr)
                 self.assertEqual((work / "gh-calls").read_text().splitlines(), expected)
                 self.assertEqual((work / "release-notes.md").read_text().count("## Debian 云镜像 OVA"), 1)
-                # A test run cannot override FINAL_TAG to upload production assets.
-                if ref == "refs/heads/test":
-                    before = (work / "gh-calls").read_text()
-                    env["FINAL_TAG"] = "20261106-1234"
+                # Unsupported refs cannot publish even with a valid main tag.
+                before = (work / "gh-calls").read_text()
+                for invalid_ref in ("refs/heads/test", "refs/heads/feature", "refs/tags/v1"):
+                    env["GITHUB_REF"] = invalid_ref
                     rejected = subprocess.run(["bash", str(ROOT / "scripts/publish.sh")], env=env, cwd=work,
                                               text=True, capture_output=True)
                     self.assertNotEqual(rejected.returncode, 0)
                     self.assertEqual((work / "gh-calls").read_text(), before)
+                env["GITHUB_REF"] = ref
+                env["FINAL_TAG"] = "wrong-tag"
+                rejected = subprocess.run(["bash", str(ROOT / "scripts/publish.sh")], env=env, cwd=work,
+                                          text=True, capture_output=True)
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertEqual((work / "gh-calls").read_text(), before)
+                env["FINAL_TAG"] = manifest["release"]["tag"]
+                del manifest["release"]
+                manifest_path.write_text(json.dumps(manifest))
+                rejected = subprocess.run(["bash", str(ROOT / "scripts/publish.sh")], env=env, cwd=work,
+                                          text=True, capture_output=True)
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertIn("缺少 release 字段", rejected.stderr)
+                self.assertEqual((work / "gh-calls").read_text(), before)

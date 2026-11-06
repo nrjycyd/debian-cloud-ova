@@ -180,6 +180,8 @@ convert_disk() {
     fi
     if [ ! -f "${FILE_NAME}.${FILE_DEST_EXT}" ]; then
         echo "[INFO] Converting image to VMDK format..."
+        # Keep the established adapter metadata until an ESXi import test
+        # confirms a replacement; lsilogic is not the OVF VirtualSCSI model.
         qemu-img convert -f "$FILE_ORIG_EXT" -O "$FILE_DEST_EXT" -o subformat=streamOptimized \
             "${FILE_NAME}.${FILE_ORIG_EXT}" "${FILE_NAME}.${FILE_DEST_EXT}"
         echo "[INFO] Conversion completed"

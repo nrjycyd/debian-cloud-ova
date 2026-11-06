@@ -178,10 +178,11 @@ class BuildTests(unittest.TestCase):
                 self.assertFalse(list(work.glob("tmp*/user-data")))
                 self.assertFalse(list(work.glob("tmp*/meta-data")))
 
-    def test_test_branch_outputs_isolated_release(self):
+    def test_removed_test_channel_cannot_build_publishable_assets(self):
         with build_fixture() as (work, env):
             env.update(environment(), GITHUB_REF="refs/heads/test", TARGET_ENABLE_SSH="false",
                        TARGET_BUILD_2="不构建", TARGET_BUILD_3="", TARGET_BUILD_4="")
-            manifest = self.batch(env)
-            self.assertEqual(manifest["release"], {"tag": "test-debian13-20261106-1234", "prerelease": True})
-            self.assertIn("FINAL_TAG=test-debian13-20261106-1234", (work / "outputs").read_text())
+            with self.assertRaisesRegex(ValueError, "仅支持 main"):
+                self.batch(env)
+            self.assertFalse(list(work.glob("*.ova")))
+            self.assertFalse((work / "outputs").exists())

@@ -15,7 +15,8 @@ OVA 构建由 GitHub Actions 手动触发。`scripts/` 中的构建程序是工�
 | `guest/` | 首次启动运行的 SSH、工具和软件源配置 |
 | `debian-ova-creator.sh` | 磁盘准备、转换与 OVA 打包 |
 | `scripts/report.py`、`scripts/publish.sh` | 摘要、单份 Release 说明和资产发布 |
-| `scripts/release.py` | main/test 发布标签与预发布策略 |
+| `scripts/release.py` | main 发布标签与来源校验 |
+| `scripts/manifest.py` | 构建清单字段、类型和资产列表校验 |
 | `scripts/panel.py` | 所有下拉框的默认值及共享选项校验 |
 | `tests/` | 参数、配置、缓存、打包与发布失败路径的回归检查 |
 
@@ -25,10 +26,13 @@ OVA 构建由 GitHub Actions 手动触发。`scripts/` 中的构建程序是工�
 
 ## 本地检查
 
-检查环境要求 Linux（Debian/Ubuntu 或 WSL）、Python >=3.8，以及通过 apt 安装的 `python3-yaml`、`cloud-init`、`shellcheck`。使用系统 `/usr/bin/python3`，避免 PATH 中的虚拟环境解释器无法导入系统依赖：
+检查环境要求 Linux（Debian/Ubuntu 或 WSL）、Python >=3.8，以及通过 apt 安装的 `python3-yaml`、`cloud-init`、`shellcheck`、`python3-venv`。使用系统 `/usr/bin/python3` 执行回归测试，避免虚拟环境解释器无法导入系统依赖。Pyflakes 单独装在工具虚拟环境，版本由 `requirements-check.txt` 固定：
 
 ```sh
 shellcheck debian-ova-creator.sh scripts/publish.sh guest/*.sh
+/usr/bin/python3 -m venv .venv-check
+.venv-check/bin/python -m pip install -r requirements-check.txt
+.venv-check/bin/python -m pyflakes scripts guest tests
 /usr/bin/python3 scripts/check-environment.py
 /usr/bin/python3 scripts/update-panel.py --check
 /usr/bin/python3 -m unittest discover -s tests -t . -v
@@ -48,10 +52,14 @@ shellcheck debian-ova-creator.sh scripts/publish.sh guest/*.sh
 - 转换后的 VMDK 在独立只读会话中复核空标记，失败停止打包；成功结果绑定 VMDK 内容摘要并供批量构建复用。
 - 换源仅修改已有 `/etc/apt/mirrors/*.list`，保留源定义、安全更新地址和原文件备份。
 - 源版本在下载前固定，原始 qcow2 校验通过后才进入可变磁盘准备流程。
-- 所有机型构建成功后才产生发布清单。同一分支和 Debian 版本排队执行，不取消正在执行或已排队的构建。
-- main 复用官方 build 标签；test 使用 `test-debian12-<build>` / `test-debian13-<build>` 独立标签，发布为 prerelease，且不设置为 Latest。不同发布空间不再争用同一个 Release，所以队列按分支区分。其他分支和 tag ref 不允许发布。
-- 发布前再次校验分支、系统版本与标签，防止 test 使用正式标签覆盖资产。各发布空间保留历史资产，正文只保留本次的一份说明。
+- 所有机型构建成功且通过清单校验后才产生发布输出。同一 Debian 版本排队执行，不取消正在执行或已排队的构建。
+- 仅 main 发布，复用官方 build 标签；其他分支、tag 和 PR ref 不允许发布。历史资产保留，正文只保留本次的一份说明。
+- 发布前再次校验分支、系统版本与标签。旧格式或损坏清单应明确报错，不通过缺省值绕过发布校验。
 
 访客机配置以 Debian 12 的 cloud-init 22.4.2 和 Debian 13 为验证基线。软件源零替换时区分“已配置”和“未匹配到官方源”；后者记录警告并保留现有源，不因私人源或幂等重跑而强制失败。
 
 `build-manifest.json` 保存本次批量结果，不含密码；镜像内的 `/etc/ova-build-info.json` 记录源版本、摘要、代码提交和请求配置。公开 Release 的登录密码行为保持原有约定，不能填写私人复用密码。SHA512 校验依据从 Debian HTTPS 获取的摘要，不等同于离线签名验证。
+
+## 虚拟磁盘兼容性
+
+当前 OVF 采用 `VirtualSCSI`；VMDK 描述符沿用 QEMU 的默认适配器元数据。`lsilogic` 不能直接视为与 `VirtualSCSI` 相同。现有 ESXi 镜像能够启动，暂不为消除文本差异而更换控制器或适配器类型。调整前应单独验证 ESXi 导入、实际驱动、首次启动和扩容；QEMU 的磁盘检查不代替 ESXi 导入回归。

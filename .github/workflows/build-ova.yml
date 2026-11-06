@@ -198,9 +198,9 @@ on:
         required: false
         default: '123456'
 
-# Serialize updates of one channel/version; test uses separate prerelease tags.
+# Only main publishes; serialize updates of the same Debian release.
 concurrency:
-  group: ova-${{ github.ref }}-debian-${{ inputs.debian_version }}
+  group: ova-debian-${{ inputs.debian_version }}
   cancel-in-progress: false
   queue: max
 

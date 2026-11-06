@@ -7,6 +7,7 @@ from pathlib import Path
 
 from config import MIRRORS
 from release import validate as validate_release
+from manifest import validate as validate_manifest
 
 
 def image_table(manifest):
@@ -20,11 +21,11 @@ def image_table(manifest):
 
 
 def release_notes(manifest, password):
+    validate_manifest(manifest)
     settings = manifest["settings"]
-    notice = "> 测试分支构建，作为预发布提供。\n\n" if manifest["release"]["prerelease"] else ""
     return f"""## Debian 云镜像 OVA
 
-{notice}**构建配置：**
+**构建配置：**
 - Debian 版本：**{settings['version']}**
 - Debian Build 号：**{manifest['source']['build']}**
 - vCPU：**{settings['vcpu']}**
@@ -58,6 +59,7 @@ def summary(manifest, env):
     text = f"## Debian {env['TARGET_VERSION']} OVA 构建结果\n\n- 状态：{env['BUILD_STATUS']}\n"
     if manifest is None:
         return text + "\n构建未完成，请查看失败步骤的错误信息；本次未发布镜像。\n"
+    validate_manifest(manifest)
     settings = manifest["settings"]
     text += (f"- 构建机型：{manifest['target_count']}\n"
              f"- 发布标签：{manifest['release']['tag']}\n"
@@ -75,15 +77,12 @@ def main():
     manifest_path = os.environ.get("BUILD_MANIFEST", "")
     manifest = json.loads(Path(manifest_path).read_text()) if manifest_path else None
     if sys.argv[1] in ("release", "release-options"):
-        if not manifest or not manifest["images"]:
+        if manifest is None:
             raise ValueError("没有可发布的镜像")
         release = validate_release(manifest, os.environ)
         if sys.argv[1] == "release-options":
-            prefix = "[test] " if release["prerelease"] else ""
-            print(f"{prefix}Debian {manifest['settings']['version']} OVA - {release['tag']}")
-            print("--prerelease" if release["prerelease"] else "--prerelease=false")
-            if release["prerelease"]:
-                print("--latest=false")
+            print(f"Debian {manifest['settings']['version']} OVA - {release['tag']}")
+            print("--prerelease=false")
             return
         Path(sys.argv[2]).write_text(release_notes(manifest, os.environ["TARGET_PASSWORD"]))
         for image in manifest["images"]:
