@@ -1,21 +1,9 @@
 import copy
 import unittest
 
-from tests.support import source_info
+from tests.support import sample_manifest
 from manifest import validate
-from release import policy
 from report import release_notes, summary
-
-
-def sample_manifest():
-    return {"settings": {"version": "13", "vcpu": 2, "memory": 1024, "disk": 4,
-                         "hostname": "debian13", "username": "debian", "mirror": "official",
-                         "install_vm_tools": True, "timezone": "UTC"},
-            "source": source_info("13"), "release": policy("refs/heads/main", "13", "20261106-1234"),
-            "build_time": "2026-11-06 00:00:00 UTC", "target_count": 1,
-            "images": [{"target": "ESXi 7.0 U3 + DGNU 11 (vmx-19)", "kind": "console",
-                        "filename": "debian13-console.ova", "username": "debian", "size": "320M",
-                        "disk_gib": "4.00", "disk_bytes": 4294967296}]}
 
 
 class ManifestTests(unittest.TestCase):
@@ -45,7 +33,7 @@ class ManifestTests(unittest.TestCase):
             ("settings", "memory", "1024"), ("settings", "install_vm_tools", "true"),
             ("settings", "vcpu", True), ("settings", "memory", True), ("settings", "disk", True),
             ("settings", "install_vm_tools", 1),
-            ("release", "prerelease", 0), ("source", "build", None),
+            ("source", "build", None),
         ):
             manifest = copy.deepcopy(base)
             target = manifest[group] if group else manifest

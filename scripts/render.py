@@ -1,4 +1,4 @@
-"""Render cloud-init and OVF without embedding guest programs in Bash heredocs."""
+"""生成 cloud-init 与 OVF，访客机脚本从独立文件读取。"""
 
 import json
 import os
@@ -32,7 +32,7 @@ def cloud_config(settings, source, preset, env):
         "timezone": settings["timezone"],
         "growpart": {"mode": "auto", "devices": ["/"], "ignore_growroot_disabled": True},
         "resize_rootfs": True,
-        # Validated baseline: Debian 12 cloud-init 22.4.2 and Debian 13.
+        # 此 chpasswd 格式已在 Debian 12 cloud-init 22.4.2 和 Debian 13 验证。
         "chpasswd": {"users": [{"name": settings["username"], "password": settings["password"], "type": "text"}],
                      "expire": False},
         "packages": ["cloud-init", "tzdata"] + (["open-vm-tools"] if settings["install_vm_tools"] else []),
@@ -44,8 +44,7 @@ def cloud_config(settings, source, preset, env):
         ],
         "runcmd": [["/usr/local/sbin/configure-ova", str(ssh).lower(), str(settings["install_vm_tools"]).lower()]],
     }
-    # Console variants inherit SSH service and authentication policy from the
-    # source image. Only the explicit SSH variant overrides these defaults.
+    # console 沿用源镜像的 SSH 默认值，仅 SSH 镜像覆盖服务及认证策略。
     if ssh:
         config.update(ssh_pwauth=True, disable_root=False)
         config["packages"].append("openssh-server")
@@ -62,14 +61,14 @@ def cloud_config(settings, source, preset, env):
 def main():
     action = sys.argv[1]
     if action == "cloud":
-        # Fixed argument order is internal to debian-ova-creator.sh.
+        # 参数顺序须与 debian-ova-creator.sh 的内部调用一致。
         keys = ("version", "vcpu", "memory", "disk", "hostname", "username", "password",
                 "enable_ssh", "mirror", "install_vm_tools", "timezone")
         settings = validate(dict(zip(keys, sys.argv[4:])), image=True)
         preset = target(os.environ["VIRTUAL_SYSTEM_TYPE"], os.environ["OVF_OS_ID"], os.environ["OVF_OS_TYPE"])
         source = validate_source(json.loads(Path(os.environ["OVA_SOURCE_MANIFEST"]).read_text()), settings["version"])
         config = cloud_config(settings, source, preset, os.environ)
-        # JSON is a YAML subset; the cloud-config header selects cloud-init's YAML handler.
+        # JSON 是 YAML 子集；cloud-config 标识使 cloud-init 按 YAML 解析。
         Path(sys.argv[2]).write_text("#cloud-config\n" + json.dumps(config, ensure_ascii=False, indent=2) + "\n")
         Path(sys.argv[3]).write_text(json.dumps({
             "instance-id": f"debian-{settings['version']}-{secrets.token_hex(8)}",

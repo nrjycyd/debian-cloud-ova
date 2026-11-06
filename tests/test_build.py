@@ -14,7 +14,7 @@ from tests.support import ROOT, build_fixture, fake_download, source_info
 import build
 from config import catalog
 from report import release_notes, summary
-from tests.test_config import environment
+from tests.support import environment
 
 
 class BuildTests(unittest.TestCase):
@@ -138,10 +138,26 @@ class BuildTests(unittest.TestCase):
             env.update(OVA_SOURCE_IMAGE=str(image), OVA_SOURCE_MANIFEST=str(metadata),
                        VIRTUAL_SYSTEM_TYPE=preset["vmx"], OVF_OS_ID=str(preset["os_id"]), OVF_OS_TYPE=preset["os_type"])
             result = subprocess.run(["runuser", "-u", "nobody", "--preserve-environment", "--", "bash",
-                                     str(ROOT / "debian-ova-creator.sh"), "-d", "12"],
+                                     str(ROOT / "debian-ova-creator.sh"), "-d", "12", "-c", "2", "-m", "1024",
+                                     "-s", "4", "-H", "debian-cloud", "-u", "debian", "-p", "123456",
+                                     "-S", "false", "-M", "official", "-V", "true", "-T", "UTC"],
                                     env=env, text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual((work / "sudo-calls").read_text().splitlines(), ["sudo", "sudo"])
+
+    def test_missing_creator_argument_stops_before_disk_work(self):
+        arguments = {"d": "12", "c": "2", "m": "1024", "s": "4", "H": "debian-cloud",
+                     "u": "debian", "p": "123456", "S": "false", "M": "official", "V": "true", "T": "UTC"}
+        for missing in arguments:
+            with self.subTest(missing=missing), build_fixture() as (work, env):
+                command = ["bash", str(ROOT / "debian-ova-creator.sh")]
+                for flag, value in arguments.items():
+                    if flag != missing:
+                        command.extend(["-" + flag, value])
+                result = subprocess.run(command, env=env, text=True, capture_output=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("缺少 -" + missing, result.stderr)
+                self.assertEqual(sorted(path.name for path in work.iterdir()), ["bin"])
 
     def test_readonly_verification_failure_stops_packaging(self):
         for failure in ("fail", "missing", "nonempty"):

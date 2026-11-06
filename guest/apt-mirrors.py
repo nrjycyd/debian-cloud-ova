@@ -1,4 +1,4 @@
-"""Change existing mirror lists only; keep source definitions and security origin."""
+"""仅修改已有镜像站列表，保留源定义及官方安全更新源。"""
 
 import re
 import shutil

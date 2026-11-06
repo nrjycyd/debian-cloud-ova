@@ -7,7 +7,7 @@ case "$1" in
     if [ ! -f "$config.ova-backup" ]; then
       cp -p "$config" "$config.ova-backup"
     fi
-    # OpenSSH uses the first value: put our policy before distro includes.
+    # OpenSSH 优先采用首次出现的值，将策略放在发行版 Include 之前。
     sed -i '/^# BEGIN OVA SSH$/,/^# END OVA SSH$/d' "$config"
     temp_config=$(mktemp)
     trap 'rm -f "$temp_config"' EXIT
@@ -27,6 +27,6 @@ case "$1" in
     systemctl enable ssh.service
     systemctl restart ssh.service
     ;;
-  false) ;; # Console variants must not change service or authentication policy.
-  *) echo '[ERROR] Invalid SSH mode' >&2; exit 1 ;;
+  false) ;; # 主初始化不调用此分支；保留为安全的空操作接口。
+  *) echo '[ERROR] 无效的 SSH 模式' >&2; exit 1 ;;
 esac

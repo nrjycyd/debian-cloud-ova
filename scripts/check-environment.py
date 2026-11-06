@@ -1,4 +1,4 @@
-"""Fail with an actionable message before running the maintenance checks."""
+"""在维护检查前验证解释器及依赖，并提供修正提示。"""
 
 import importlib
 import sys

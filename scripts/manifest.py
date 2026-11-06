@@ -1,4 +1,4 @@
-"""Validate the internal build-result contract before formatting or publishing."""
+"""在展示或发布前校验构建结果清单。"""
 
 from pathlib import Path
 
@@ -10,6 +10,7 @@ def require(mapping, key, expected, prefix=""):
     if key not in mapping:
         raise ValueError(f"构建清单缺少 {name} 字段，请使用当前版本重新构建")
     value = mapping[key]
+    # bool 是 int 的子类；精确类型检查避免 True 冒充整数。
     if type(value) is not expected:
         raise ValueError(f"构建清单 {name} 类型错误，应为 {expected.__name__}")
     if expected is str and not value:
@@ -38,7 +39,6 @@ def validate(manifest):
         raise ValueError("构建清单包含不支持的系统版本、软件源或时区")
     require(source, "build", str, "source")
     require(release, "tag", str, "release")
-    require(release, "prerelease", bool, "release")
     filenames = set()
     targets = set()
     for index, image in enumerate(images):

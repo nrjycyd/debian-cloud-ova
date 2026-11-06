@@ -1,4 +1,4 @@
-"""Shared validation for Actions inputs and the internal image builder."""
+"""Actions 输入和内部构建入口共用的参数校验。"""
 
 import json
 import re
@@ -20,7 +20,7 @@ TIMEZONES = (
 
 
 def integer(value, minimum, maximum, name):
-    # int has no machine-word overflow; bound length before parsing API input.
+    # Python 整数不会溢出，先限制输入长度再检查数值范围。
     text = str(value)
     if not re.fullmatch(r"[0-9]{1,32}", text):
         raise ValueError(f"{name} 必须是 {minimum}-{maximum} 之间的整数")
@@ -37,7 +37,7 @@ def boolean(value, name):
 
 
 def validate(values, *, image=False):
-    """Return normalized settings; image=True allows root in the SSH variant."""
+    """规范化参数；image=True 时允许 SSH 镜像使用 root。"""
     result = dict(values)
     if result["version"] not in VERSIONS:
         raise ValueError("仅支持 Debian 12/13")
@@ -80,7 +80,7 @@ def catalog():
     labels = set()
     for item in items:
         label = item.get("label")
-        # ESXi wording can include update ranges; validate the structured suffix.
+        # ESXi 描述允许更新版本范围，仅解析固定格式的 DGNU/vmx 后缀。
         match = re.fullmatch(r"ESXi .+ \+ DGNU ([0-9]+) \((vmx-[0-9]+)\)", label) if isinstance(label, str) else None
         if not match:
             raise ValueError(f"机型目录 label 格式不合法：{label}")

@@ -1,11 +1,11 @@
 #!/bin/sh
 set -eu
 
-# One runcmd entry preserves failures through cloud-init's parent script.
+# 通过单个 runcmd 调用，确保初始化错误传播到 cloud-init。
 case "$1" in
   true) /usr/local/sbin/configure-ova-ssh true ;;
-  false) ;; # Preserve the source image's SSH defaults for console variants.
-  *) echo '[ERROR] Invalid SSH mode' >&2; exit 1 ;;
+  false) ;; # console 沿用源镜像的 SSH 默认值。
+  *) echo '[ERROR] 无效的 SSH 模式' >&2; exit 1 ;;
 esac
 systemctl daemon-reload
 case "$2" in
@@ -14,5 +14,5 @@ case "$2" in
     systemctl start open-vm-tools
     ;;
   false) ;;
-  *) echo '[ERROR] Invalid VM tools mode' >&2; exit 1 ;;
+  *) echo '[ERROR] 无效的工具安装开关' >&2; exit 1 ;;
 esac

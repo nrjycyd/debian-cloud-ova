@@ -1,4 +1,4 @@
-"""Build the selected variants; publish outputs only after the entire batch succeeds."""
+"""批量构建所选镜像，全部成功后才输出发布信息。"""
 
 import json
 import os

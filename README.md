@@ -13,12 +13,10 @@
 
 ## 功能特性
 
-- **官方源构建**：基于 `Debian Official Cloud Images` 构建，确保纯净安全。
-- **多版本支持**：Debian 12 (Bookworm)、13 (Trixie)，每次选择一个系统构建。Guest OS 标识（DGNU）按 ESXi 兼容性选择，与实际系统版本独立。
-- **机型精确匹配**：通过四个下拉框一次选择最多四种 ESXi + Guest OS 组合，保留全部预设选项，重复组合自动去重。
-- **硬件定制**：构建时可自定义 vCPU、内存和磁盘大小（输入最小 2 GiB；小于源镜像实际虚拟容量时，自动采用源镜像容量继续构建）。
-- **自动化发布**：通过 GitHub Actions 构建并发布到 Releases。
-- **Cloud-Init**：自动配置主机名、登录账户和密码；SSH 镜像额外启用 root 密码登录。
+- **系统与机型**：支持 Debian 12 (Bookworm)、13 (Trixie)，每次选择一个系统和最多四种 ESXi + Guest OS 组合，重复组合自动去重。Guest OS 标识（DGNU）与实际系统版本独立。
+- **硬件定制**：自定义 vCPU、内存和磁盘；磁盘容量不足时自动采用源镜像容量。
+- **初始化配置**：配置主机名、账户、密码、软件源、时区和 open-vm-tools；SSH 镜像额外启用 root 密码登录。
+- **构建发布**：在 GitHub Actions 手动构建，完成后从 Releases 下载 OVA。
 
 ---
 
@@ -62,7 +60,7 @@
 | `-console.ova` | 指定的普通用户 | 虚拟机控制台；SSH 保持源镜像默认配置 |
 | `-ssh.ova` | `root` | SSH 密码登录 |
 
-console 镜像不额外关闭 SSH，也不主动开启密码认证；是否允许 SSH 密码登录取决于官方云镜像的默认配置。
+console 镜像沿用官方镜像的 SSH 服务和认证配置。
 
 首次启动需联网。用 `cloud-init status --long` 确认初始化完成后，再执行 `ssh root@<虚拟机 IP>`；此前已连接的客户端请断开重连。初始化失败时查看 `/var/log/cloud-init-output.log`。
 
@@ -74,9 +72,7 @@ console 镜像不额外关闭 SSH，也不主动开启密码认证；是否允�
 
 ### 1. 首次登录
 
-- **控制台登录**：使用 VMware/ESXi 的 Web Console 或 VMRC，登录本次配置的账户。
-- **SSH 登录**：SSH 镜像可直接使用 `ssh root@<IP>`；console 镜像沿用官方云镜像的 SSH 默认配置。
-- **默认凭据**：console 镜像为 `debian` / `123456`；附加 SSH 镜像为 `root` / `123456`，请在构建时修改密码。
+账户和登录方式见上方表格；默认密码为 `123456`，实际使用构建时填写的值。
 
 ### 2. 修改登录密码（高优先级）
 
@@ -86,13 +82,7 @@ console 镜像不额外关闭 SSH，也不主动开启密码认证；是否允�
 passwd
 ```
 
-系统会提示：
-
-1. 普通用户可能需要输入当前密码（`Current password`）
-2. 输入新密码（`New password`）
-3. 确认新密码（`Retype new password`）
-
-### 3. 修改 / 锁定 Root 密码
+### 3. 设置 root 密码
 
 console 镜像不设置 root 密码；SSH 镜像已为 root 设置面板中的登录密码。普通用户可通过 `sudo` 管理 root 密码。
 
@@ -102,15 +92,13 @@ console 镜像不设置 root 密码；SSH 镜像已为 root 设置面板中的�
 sudo passwd root
 ```
 
-### 4. 强制定期修改（可选 - 适用于测试团队）
+### 4. 首次登录修改密码（可选）
 
-如果你是管理员，希望强制使用者在第一次登录时必须修改密码，请在虚拟机启动后运行：
+要求指定用户在下次登录时修改密码（将 `debian` 替换为实际用户名）：
 
 ```bash
 sudo chage -d 0 debian
 ```
-
-*效果：用户下次登录时，系统会强制要求其立即更改密码，否则无法进入 Shell。*
 
 ---
 
@@ -143,7 +131,7 @@ sudo apt update
 
 ### 2. 虚拟机工具集
 
-面板中的“安装 open-vm-tools”默认勾选，首次启动时安装并启用。取消勾选后不主动安装或启动工具，也不卸载镜像可能已有的版本。未联网导致安装失败时，可在虚拟机中手动安装：
+“安装 open-vm-tools”默认勾选，首次启动时安装并启用；取消勾选则保留镜像已有工具状态。需要时可手动安装：
 
 ```bash
 sudo apt install open-vm-tools
@@ -165,4 +153,4 @@ sudo dpkg-reconfigure tzdata
 A: 镜像使用 Cloud-Init 配置网络（DHCP）。请确保 VMware 网络适配器已连接，且该网段内有可用的 DHCP 服务。
 
 **Q: 构建日志里能看到我的密码吗？**
-A: 是的。当前构建脚本通过命令行传递密码，GitHub Actions 日志会明文记录。因此再次强调：**仅限内部测试使用，部署后必须立即修改密码，不要直接用于公网或生产环境。**
+A: 是的。当前构建脚本通过命令行传递密码，GitHub Actions 日志会明文记录。请勿填写私人复用密码，部署后立即修改。

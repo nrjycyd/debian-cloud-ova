@@ -7,6 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+from release import policy
 
 
 def source_info(version="12", payload=b"qcow2"):
@@ -17,9 +18,33 @@ def source_info(version="12", payload=b"qcow2"):
             "sha512": hashlib.sha512(payload).hexdigest()}
 
 
+def environment():
+    return {
+        "TARGET_VERSION": "13", "TARGET_VCPU": "2", "TARGET_MEMORY": "1024", "TARGET_DISK": "4",
+        "TARGET_HOSTNAME": "debian-cloud", "TARGET_USERNAME": "debian", "TARGET_PASSWORD": "123456",
+        "TARGET_ENABLE_SSH": "true", "TARGET_APT_MIRROR": "官方源",
+        "TARGET_INSTALL_VM_TOOLS": "true", "TARGET_TIMEZONE": "UTC",
+        "TARGET_BUILD": "ESXi 6.7 U3 + DGNU 10 (vmx-15)",
+        "TARGET_BUILD_2": "ESXi 7.0 U3 + DGNU 11 (vmx-19)",
+        "TARGET_BUILD_3": "ESXi 8.0 U3 + DGNU 13 (vmx-21)",
+        "TARGET_BUILD_4": "ESXi 9.0+ + DGNU 13 (vmx-22)",
+    }
+
+
+def sample_manifest():
+    return {"settings": {"version": "13", "vcpu": 2, "memory": 1024, "disk": 4,
+                         "hostname": "debian13", "username": "debian", "mirror": "official",
+                         "install_vm_tools": True, "timezone": "UTC"},
+            "source": source_info("13"), "release": policy("refs/heads/main", "13", "20261106-1234"),
+            "build_time": "2026-11-06 00:00:00 UTC", "target_count": 1,
+            "images": [{"target": "ESXi 7.0 U3 + DGNU 11 (vmx-19)", "kind": "console",
+                        "filename": "debian13-console.ova", "username": "debian", "size": "320M",
+                        "disk_gib": "4.00", "disk_bytes": 4294967296}]}
+
+
 @contextmanager
 def build_fixture():
-    """Real builder/tar/rendering; fake only the external disk/ISO tools."""
+    """使用真实构建、tar 和渲染程序，仅替换外部磁盘与 ISO 工具。"""
     previous = Path.cwd()
     with tempfile.TemporaryDirectory(prefix="ova-regression-") as directory:
         work = Path(directory)
@@ -27,7 +52,7 @@ def build_fixture():
         binaries.mkdir()
         mocks = {
             "cloud-localds": '#!/bin/sh\ncp "$2" "$1"\nif [ "${MOCK_TEMP_RESIDUE:-}" = true ]; then touch "$(dirname "$2")/residue"; fi\n',
-            # Keep the runner's sudo branch inside the isolated fake toolchain.
+            # 将 runner 的 sudo 分支限制在隔离的工具替身中。
             "sudo": '#!/bin/sh\n[ "$1" = -n ] || exit 1\nshift\necho sudo >> sudo-calls\nexec "$@"\n',
             "guestfish": '''#!/usr/bin/python3
 import os, sys

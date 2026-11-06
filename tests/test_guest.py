@@ -12,7 +12,7 @@ from pathlib import Path
 from tests.support import ROOT, source_info
 from config import MIRRORS, catalog, from_environment, validate
 from render import cloud_config
-from tests.test_config import environment
+from tests.support import environment
 
 from cloudinit import util
 from cloudinit.config.schema import validate_cloudconfig_schema
@@ -30,9 +30,8 @@ class GuestTests(unittest.TestCase):
                                             password="12@#%+=.,_-3456")
                             settings = validate(settings, image=True)
                             config = cloud_config(settings, source_info(version), catalog()[3], {})
-                            # Debian's generate_mirrorlists extension is absent from
-                            # Ubuntu's generic schema. Check its exact value below,
-                            # and strictly validate every other generated field.
+                            # Ubuntu 通用 schema 不含 Debian 的 generate_mirrorlists 扩展；
+                            # 下方单独检查该值，其余生成字段严格按 schema 校验。
                             schema_config = copy.deepcopy(config)
                             if "apt" in schema_config:
                                 schema_config["apt"].pop("generate_mirrorlists")
@@ -62,7 +61,7 @@ class GuestTests(unittest.TestCase):
                             self.assertEqual(info["source"]["build"], "20261106-1234")
 
     def test_helper_failure_reaches_cloud_init_parent(self):
-        # Use cloud-init's actual runcmd shell renderer, not a hand-written approximation.
+        # 使用 cloud-init 自身的 runcmd Shell 生成器验证错误传播。
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             ssh = root / "ssh-helper"
@@ -113,7 +112,7 @@ class GuestTests(unittest.TestCase):
                 self.assertEqual(module.configure_mirrors(apt, mirror), 0)
                 self.assertEqual(backups, {path.name: path.read_bytes() for path in (apt / "mirrors").glob("*.bak")})
                 self.assertFalse((apt / "ova-source-backups").exists())
-                # Restore to test the next mirror independently, preserving the first backup.
+                # 恢复普通源以独立测试下一个镜像站，首份备份仍须保留。
                 ordinary.write_bytes(original)
 
     def test_console_preserves_ssh_state_on_initialization_and_reboot(self):

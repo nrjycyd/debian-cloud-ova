@@ -1,23 +1,23 @@
 #!/bin/bash
 set -euo pipefail
 
-# Internal Actions entry point; no local OVA build mode.
+# 仅供 Actions 内部调用，全部参数由批量构建程序传入。
 if [[ "${GITHUB_ACTIONS:-}" != true ]]; then
     echo '[ERROR] 请在 GitHub Actions 页面运行构建工作流。' >&2
     exit 1
 fi
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 debver=''
-vcpu=2
-memory=1024
-disk_size_gb=4
-hostname=debian-cloud
-username=debian
-password=123456
-enable_ssh=false
-apt_mirror=official
-install_vm_tools=true
-guest_timezone=UTC
+vcpu=''
+memory=''
+disk_size_gb=''
+hostname=''
+username=''
+password=''
+enable_ssh=''
+apt_mirror=''
+install_vm_tools=''
+guest_timezone=''
 
 while getopts ":d:c:m:s:H:u:p:S:M:V:T:" opt; do
     case "$opt" in
@@ -32,16 +32,26 @@ while getopts ":d:c:m:s:H:u:p:S:M:V:T:" opt; do
         M) apt_mirror="$OPTARG" ;;
         V) install_vm_tools="$OPTARG" ;;
         T) guest_timezone="$OPTARG" ;;
-        :) echo "[ERROR] Option -$OPTARG requires an argument" >&2; exit 1 ;;
-        \?) echo "[ERROR] Invalid option -$OPTARG" >&2; exit 1 ;;
+        :) echo "[ERROR] 选项 -$OPTARG 缺少参数" >&2; exit 1 ;;
+        \?) echo "[ERROR] 无效选项 -$OPTARG" >&2; exit 1 ;;
     esac
 done
-
 
 if (( OPTIND <= $# )); then
     echo '[ERROR] 不接受额外的位置参数' >&2
     exit 1
 fi
+: "${debver:?缺少 -d Debian 版本}"
+: "${vcpu:?缺少 -c vCPU}"
+: "${memory:?缺少 -m 内存}"
+: "${disk_size_gb:?缺少 -s 磁盘容量}"
+: "${hostname:?缺少 -H 主机名}"
+: "${username:?缺少 -u 用户名}"
+: "${password:?缺少 -p 密码}"
+: "${enable_ssh:?缺少 -S SSH 模式}"
+: "${apt_mirror:?缺少 -M 软件源}"
+: "${install_vm_tools:?缺少 -V 工具安装开关}"
+: "${guest_timezone:?缺少 -T 时区}"
 : "${VIRTUAL_SYSTEM_TYPE:?缺少构建机型}"
 : "${OVF_OS_ID:?缺少 Guest OS ID}"
 : "${OVF_OS_TYPE:?缺少 Guest OS 标识}"
@@ -58,7 +68,7 @@ FILE_SIGN_EXT=mf
 ISO_FILE_NAME=cidata.iso
 CURRENT_DATE=$(date -u +%Y%m%d)
 
-# Always remove credentials in temporary user-data, including on failure.
+# 无论成功或失败，都清理临时 user-data 中的凭据。
 BUILD_TEMP=$(mktemp -d)
 CLOUD_CONFIG_FILE="$BUILD_TEMP/user-data"
 META_CONFIG_FILE="$BUILD_TEMP/meta-data"
@@ -108,7 +118,7 @@ render_cloud_config() {
 
 prepare_source_copy() {
     local stamp="${FILE_NAME}.source.sha512"
-    # The pristine download is verified once per batch; never modify it in place.
+    # 原始下载每批校验一次，磁盘修改只作用于工作副本。
     if [[ ! -f "${FILE_NAME}.qcow2" || ! -f "$stamp" ]] || [[ "$(< "$stamp")" != "$EXPECTED_SOURCE_HASH" ]]; then
         cp --reflink=auto -- "$OVA_SOURCE_IMAGE" "${FILE_NAME}.qcow2.part"
         mv -- "${FILE_NAME}.qcow2.part" "${FILE_NAME}.qcow2"
@@ -146,7 +156,7 @@ prepare_disk() {
     PREPARED_FILE="${FILE_NAME}.growroot-prepared.sha256"
     SOURCE_HASH=$(sha256sum "${FILE_NAME}.${FILE_ORIG_EXT}" | cut -d " " -f1)
     if [[ ! -f "$PREPARED_FILE" ]] || [[ "$(< "$PREPARED_FILE")" != "growroot-disabled-v1:$SOURCE_HASH" ]]; then
-        echo "[INFO] Preparing cloud-init disk growth..."
+        echo "[INFO] 正在准备 cloud-init 磁盘扩容配置…"
         if ! PREPARE_RESULT=$(run_guestfish --rw --format=qcow2 \
             -a "${FILE_NAME}.${FILE_ORIG_EXT}" -i <<'EOFGUESTFS'
 touch /etc/growroot-disabled
@@ -165,7 +175,7 @@ EOFGUESTFS
         SOURCE_HASH=$(sha256sum "${FILE_NAME}.${FILE_ORIG_EXT}" | cut -d " " -f1)
         printf 'growroot-disabled-v1:%s\n' "$SOURCE_HASH" > "$PREPARED_FILE"
     else
-        echo "[INFO] Cloud-init disk growth preparation already cached"
+        echo "[INFO] 复用已准备的磁盘扩容配置"
     fi
 }
 
@@ -179,14 +189,14 @@ convert_disk() {
         rm -f "${FILE_NAME}.${FILE_DEST_EXT}"
     fi
     if [ ! -f "${FILE_NAME}.${FILE_DEST_EXT}" ]; then
-        echo "[INFO] Converting image to VMDK format..."
-        # Keep the established adapter metadata until an ESXi import test
-        # confirms a replacement; lsilogic is not the OVF VirtualSCSI model.
+        echo "[INFO] 正在转换 VMDK…"
+        # 适配器元数据变更需先通过 ESXi 导入验证；
+        # lsilogic 与 OVF 的 VirtualSCSI 并不等同。
         qemu-img convert -f "$FILE_ORIG_EXT" -O "$FILE_DEST_EXT" -o subformat=streamOptimized \
             "${FILE_NAME}.${FILE_ORIG_EXT}" "${FILE_NAME}.${FILE_DEST_EXT}"
-        echo "[INFO] Conversion completed"
+        echo "[INFO] VMDK 转换完成"
     else
-        echo "[INFO] VMDK file already exists"
+        echo "[INFO] 复用已有 VMDK"
     fi
 
     FINAL_VMDK_BYTES=$(get_virtual_size "${FILE_NAME}.${FILE_DEST_EXT}") || exit 1
@@ -203,8 +213,8 @@ verify_vmdk() {
     if [[ -f "$stamp" ]] && [[ "$(< "$stamp")" == "growroot-marker-v1:$FILE_DEST_SUM" ]]; then
         return
     fi
-    # Reopen the converted disk in a separate read-only session. Do not infer
-    # filesystem state from a successful write session or disk capacity alone.
+    # 在独立只读会话中重新检查转换盘；
+    # 写入成功或容量正确不能替代文件系统内容验证。
     if ! result=$(run_guestfish --ro --format=vmdk -a "${FILE_NAME}.${FILE_DEST_EXT}" -i <<'EOFGUESTFS'
 is-file /etc/growroot-disabled
 filesize /etc/growroot-disabled
@@ -237,8 +247,7 @@ SHA256(${FILE_NAME}.ovf)= ${FILE_OVF_SUM}
 SHA256(${ISO_FILE_NAME})= ${ISO_FILE_SUM}
 MANIFEST
 
-
-    # Write atomically so an interrupted tar cannot look like a completed OVA.
+    # 先写临时文件，避免中断的打包被当作完整 OVA。
     tar -cf "${OUTPUT_NAME}.ova.part" "${FILE_NAME}.ovf" "${FILE_NAME}.${FILE_SIGN_EXT}" \
         "${FILE_NAME}.${FILE_DEST_EXT}" "$ISO_FILE_NAME"
     mv -- "${OUTPUT_NAME}.ova.part" "${OUTPUT_NAME}.ova"
@@ -246,7 +255,7 @@ MANIFEST
 }
 
 render_cloud_config
-# The shared validator rejects unsupported combinations before these mappings.
+# 共享校验已拒绝无效机型组合，此处仅生成文件名标识。
 case "$VIRTUAL_SYSTEM_TYPE" in
     vmx-14|vmx-15) ESXI_TAG=esxi6.7 ;;
     vmx-17|vmx-18|vmx-19) ESXI_TAG=esxi7.0 ;;
@@ -269,7 +278,7 @@ echo "[INFO] 已生成 ${OUTPUT_NAME}.ova（$OVA_SIZE），磁盘 ${ACTUAL_DISK_
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     {
         printf 'ACTUAL_DISK_GIB=%s\nACTUAL_DISK_BYTES=%s\n' "$ACTUAL_DISK_GIB" "$TARGET_BYTES"
-        printf 'LOGIN_USERNAME=%s\nSSH_ENABLED=%s\n' "$username" "$enable_ssh"
+        printf 'LOGIN_USERNAME=%s\n' "$username"
         printf 'OVA_FILE_NAME=%s\nOVA_FILE_SIZE=%s\n' "${OUTPUT_NAME}.ova" "$OVA_SIZE"
     } >> "$GITHUB_OUTPUT"
 fi

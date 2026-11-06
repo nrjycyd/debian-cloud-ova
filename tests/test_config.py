@@ -7,20 +7,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from tests.support import environment
 from config import catalog, from_environment, integer, select_targets, target, validate
-
-
-def environment():
-    return {
-        "TARGET_VERSION": "13", "TARGET_VCPU": "2", "TARGET_MEMORY": "1024", "TARGET_DISK": "4",
-        "TARGET_HOSTNAME": "debian-cloud", "TARGET_USERNAME": "debian", "TARGET_PASSWORD": "123456",
-        "TARGET_ENABLE_SSH": "true", "TARGET_APT_MIRROR": "官方源",
-        "TARGET_INSTALL_VM_TOOLS": "true", "TARGET_TIMEZONE": "UTC",
-        "TARGET_BUILD": "ESXi 6.7 U3 + DGNU 10 (vmx-15)",
-        "TARGET_BUILD_2": "ESXi 7.0 U3 + DGNU 11 (vmx-19)",
-        "TARGET_BUILD_3": "ESXi 8.0 U3 + DGNU 13 (vmx-21)",
-        "TARGET_BUILD_4": "ESXi 9.0+ + DGNU 13 (vmx-22)",
-    }
 
 
 class ConfigTests(unittest.TestCase):
@@ -37,7 +25,7 @@ class ConfigTests(unittest.TestCase):
             (root / ".github").mkdir()
             path = root / ".github/build-targets.json"
             with patch("config.ROOT", root):
-                # Every existing update range must remain accepted unchanged.
+                # 所有现有更新版本范围均须保持可用。
                 path.write_text(json.dumps(items))
                 self.assertEqual(catalog(), items)
                 for change, error in changes:

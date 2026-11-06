@@ -1,4 +1,4 @@
-"""Validate static choice inputs against the shared configuration catalog."""
+"""校验工作流静态选项与共享目录是否一致。"""
 
 import yaml
 

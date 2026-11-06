@@ -1,4 +1,4 @@
-"""Resolve one immutable Debian cloud build and verify its original qcow2."""
+"""固定 Debian 云镜像 build 并校验原始 qcow2。"""
 
 import hashlib
 import json
@@ -68,7 +68,7 @@ def digest(path):
 
 
 def download(source, destination):
-    """Only a complete, verified file can become a reusable source image."""
+    """只有完整且校验通过的下载才能成为可复用源镜像。"""
     destination = Path(destination)
     if destination.is_file() and digest(destination) == source["sha512"]:
         return
@@ -92,5 +92,5 @@ def download(source, destination):
 
 
 if __name__ == "__main__":
-    # Internal diagnostics only; no local OVA build entry point.
+    # 仅用于查看源镜像元数据，不提供本地 OVA 构建入口。
     print(json.dumps(resolve(sys.argv[1]), ensure_ascii=False, indent=2))

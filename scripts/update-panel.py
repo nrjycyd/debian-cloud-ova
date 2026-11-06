@@ -1,4 +1,4 @@
-"""Refresh static Actions target choices from the catalog, or check for drift."""
+"""从目录更新 Actions 机型选项，或检查是否一致。"""
 
 import re
 import sys

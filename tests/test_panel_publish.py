@@ -1,7 +1,6 @@
 import json
 import os
 import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -12,7 +11,6 @@ from tests.support import ROOT
 from config import MIRRORS, TIMEZONES, VERSIONS, catalog
 from panel import validate as validate_panel
 from release import policy
-from tests.test_manifest import sample_manifest
 
 
 class PanelTests(unittest.TestCase):
@@ -59,24 +57,13 @@ class PanelTests(unittest.TestCase):
 
     def test_only_main_can_publish(self):
         self.assertEqual(policy("refs/heads/main", "12", "20261106-1234"),
-                         {"tag": "20261106-1234", "prerelease": False})
+                         {"tag": "20261106-1234"})
         for ref in ("", "refs/heads/test", "refs/heads/feature", "refs/tags/test", "refs/pull/1/merge"):
             with self.assertRaises(ValueError):
                 policy(ref, "12", "20261106-1234")
 
 
 class PublishTests(unittest.TestCase):
-    def test_release_options_contract(self):
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "manifest.json"
-            manifest = sample_manifest()
-            path.write_text(json.dumps(manifest))
-            env = dict(os.environ, BUILD_MANIFEST=str(path), GITHUB_REF="refs/heads/main",
-                       FINAL_TAG=manifest["release"]["tag"], TARGET_VERSION=manifest["settings"]["version"])
-            result = subprocess.run([sys.executable, str(ROOT / "scripts/report.py"), "release-options"],
-                                    env=env, text=True, capture_output=True, check=True)
-            self.assertEqual(result.stdout.splitlines(), ["Debian 13 OVA - 20261106-1234", "--prerelease=false"])
-
     def test_existing_new_raced_and_failed_publications(self):
         self.publish_modes("refs/heads/main")
 
@@ -100,7 +87,9 @@ mode = os.environ['TEST_RELEASE_MODE']
 tag = sys.argv[3]
 assert tag == '20261106-1234'
 assert os.environ['GITHUB_REF'] == 'refs/heads/main'
-if command in ('create', 'edit'): assert '--prerelease=false' in sys.argv
+if command in ('create', 'edit'):
+    assert '--prerelease=false' in sys.argv
+    assert sys.argv[sys.argv.index('--title') + 1] == 'Debian 12 OVA - 20261106-1234'
 if command == 'view': sys.exit(0 if mode in ('existing', 'upload-error') or (mode == 'race' and history) else 1)
 if command == 'create':
     assert '--target' in sys.argv and os.environ['GITHUB_SHA'] in sys.argv
@@ -132,7 +121,7 @@ if command == 'upload': sys.exit(1 if mode == 'upload-error' else 0)
                     self.assertIn("CREATE_ORIGINAL_403", result.stderr)
                 self.assertEqual((work / "gh-calls").read_text().splitlines(), expected)
                 self.assertEqual((work / "release-notes.md").read_text().count("## Debian 云镜像 OVA"), 1)
-                # Unsupported refs cannot publish even with a valid main tag.
+                # 即使标签有效，其他 ref 也不得发布。
                 before = (work / "gh-calls").read_text()
                 for invalid_ref in ("refs/heads/test", "refs/heads/feature", "refs/tags/v1"):
                     env["GITHUB_REF"] = invalid_ref

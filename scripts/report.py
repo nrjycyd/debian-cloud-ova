@@ -1,4 +1,4 @@
-"""Generate the summary and the single Release description from the same manifest."""
+"""从同一构建清单生成摘要与 Release 说明。"""
 
 import json
 import os
@@ -48,10 +48,6 @@ def release_notes(manifest, password):
    - SSH 镜像（如有）：等待 cloud-init 完成后执行 `ssh root@<虚拟机 IP>`
    - 密码：`{password}`
 
-**Cloud-Init 支持：**
-- 自定义主机名配置
-- 默认配置普通用户，附加 SSH 镜像配置 root
-- 执行 user-data 脚本
 """
 
 
@@ -76,14 +72,10 @@ def summary(manifest, env):
 def main():
     manifest_path = os.environ.get("BUILD_MANIFEST", "")
     manifest = json.loads(Path(manifest_path).read_text()) if manifest_path else None
-    if sys.argv[1] in ("release", "release-options"):
+    if sys.argv[1] == "release":
         if manifest is None:
             raise ValueError("没有可发布的镜像")
-        release = validate_release(manifest, os.environ)
-        if sys.argv[1] == "release-options":
-            print(f"Debian {manifest['settings']['version']} OVA - {release['tag']}")
-            print("--prerelease=false")
-            return
+        validate_release(manifest, os.environ)
         Path(sys.argv[2]).write_text(release_notes(manifest, os.environ["TARGET_PASSWORD"]))
         for image in manifest["images"]:
             filename = image["filename"]
