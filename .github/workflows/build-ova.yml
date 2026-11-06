@@ -64,6 +64,11 @@ on:
         required: false
         default: false
         type: boolean
+      use_cn_mirror:
+        description: '使用国内软件源'
+        required: false
+        default: false
+        type: boolean
       username:
         description: '用户名（非 SSH 镜像）'
         required: false
@@ -94,6 +99,7 @@ jobs:
       TARGET_USERNAME: ${{ github.event.inputs.username }}
       TARGET_PASSWORD: ${{ github.event.inputs.password }}
       TARGET_ENABLE_SSH: ${{ inputs.enable_ssh && 'true' || 'false' }}
+      TARGET_USE_CN_MIRROR: ${{ inputs.use_cn_mirror && 'true' || 'false' }}
       # RELEASE_TAG: ${{ github.event.inputs.release_tag }}
 
     steps:
@@ -131,6 +137,11 @@ jobs:
           case "$TARGET_ENABLE_SSH" in
             true|false) LOGIN_USERNAME="$TARGET_USERNAME" ;;
             *) echo "[ERROR] SSH 开关必须为 true 或 false"; exit 1 ;;
+          esac
+          case "$TARGET_USE_CN_MIRROR" in
+            true) APT_SOURCE_LABEL='清华镜像（安全更新使用官方源）' ;;
+            false) APT_SOURCE_LABEL='官方' ;;
+            *) echo "[ERROR] 国内软件源开关必须为 true 或 false"; exit 1 ;;
           esac
           if ! [[ "$LOGIN_USERNAME" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
               echo "[ERROR] 用户名不合法（小写字母开头，字母/数字/_/-，≤32 字符）"; exit 1
@@ -173,6 +184,7 @@ jobs:
           echo "[INFO] 主机名: ${TARGET_HOSTNAME}"
           echo "[INFO] 登录账户: $LOGIN_USERNAME"
           echo "[INFO] 附加 SSH 镜像: $TARGET_ENABLE_SSH"
+          echo "[INFO] 软件源: $APT_SOURCE_LABEL"
 
           # Guest OS 标识：由组合中的 DGNU 直接映射（组合已保证 ≤ 机型可识别上限）
           case "$DGNU_NUM" in
@@ -195,7 +207,8 @@ jobs:
               -H "$TARGET_HOSTNAME" \
               -u "$TARGET_USERNAME" \
               -p "$TARGET_PASSWORD" \
-              -S "$mode"
+              -S "$mode" \
+              -M "$TARGET_USE_CN_MIRROR"
           }
           read_output() {
             python3 - "$1" "$2" <<'PY'
@@ -250,6 +263,7 @@ jobs:
           echo "SSH_ENABLED=$TARGET_ENABLE_SSH" >> "$GITHUB_OUTPUT"
           echo "ACTUAL_DISK_GIB=$ACTUAL_DISK_GIB" >> "$GITHUB_OUTPUT"
           echo "ACTUAL_DISK_BYTES=$ACTUAL_DISK_BYTES" >> "$GITHUB_OUTPUT"
+          echo "APT_SOURCE_LABEL=$APT_SOURCE_LABEL" >> "$GITHUB_OUTPUT"
           echo "BUILD_TIME=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> "$GITHUB_OUTPUT"
           echo "DEBIAN_BUILD=$DEBIAN_BUILD" >> "$GITHUB_OUTPUT"
           echo "FINAL_TAG=${DEBIAN_BUILD}" >> "$GITHUB_OUTPUT"
@@ -272,6 +286,7 @@ jobs:
           OVA_FILE_NAME: ${{ steps.build.outputs.OVA_FILE_NAME }}
           SSH_FILE_NAME: ${{ steps.build.outputs.SSH_FILE_NAME }}
           SSH_FILE_SIZE: ${{ steps.build.outputs.SSH_FILE_SIZE }}
+          APT_SOURCE_LABEL: ${{ steps.build.outputs.APT_SOURCE_LABEL }}
         run: |
           ASSETS=("$OVA_FILE_NAME")
           SSH_ROW=""
@@ -290,6 +305,7 @@ jobs:
           - 内存：**${TARGET_MEMORY}MB**
           - 磁盘大小：**${ACTUAL_DISK_GIB} GB**
           - 主机名：**${TARGET_HOSTNAME}**
+          - 软件源：**${APT_SOURCE_LABEL}**
           - 默认镜像：**非 SSH（控制台登录）**
           - 构建时间：**${BUILD_TIME}**
 
@@ -344,6 +360,7 @@ jobs:
           OVA_FILE_NAME: ${{ steps.build.outputs.OVA_FILE_NAME }}
           SSH_FILE_NAME: ${{ steps.build.outputs.SSH_FILE_NAME }}
           SSH_FILE_SIZE: ${{ steps.build.outputs.SSH_FILE_SIZE }}
+          APT_SOURCE_LABEL: ${{ steps.build.outputs.APT_SOURCE_LABEL }}
         run: |
           echo ""
           echo "[INFO] Debian OVA 构建状态: ${BUILD_STATUS}"
@@ -354,6 +371,7 @@ jobs:
           echo "[INFO] 实际磁盘容量: ${ACTUAL_DISK_GIB:-未生成} GiB"
           echo "[INFO] ESXi 机型: ${TARGET_BUILD}"
           echo "[INFO] 主机名: ${TARGET_HOSTNAME}"
+          echo "[INFO] 软件源: ${APT_SOURCE_LABEL:-未生成}"
           echo "[INFO] 登录账户: ${LOGIN_USERNAME:-未生成}"
           echo "[INFO] 附加 SSH 镜像: ${SSH_ENABLED:-未生成}"
           echo "[INFO] 标签: ${FINAL_TAG}"
@@ -370,6 +388,7 @@ jobs:
             {
               printf '## Debian %s OVA 构建结果\n\n' "$TARGET_VERSION"
               printf -- '- 状态：%s\n' "$BUILD_STATUS"
+              printf -- '- 软件源：%s\n' "${APT_SOURCE_LABEL:-未生成}"
               printf -- '- 登录账户：%s\n' "${LOGIN_USERNAME:-未生成}"
               printf -- '- 默认非 SSH 镜像：%s\n' "${OVA_FILE_NAME:-未生成}"
               printf -- '- 附加 SSH 镜像：%s\n' "${SSH_FILE_NAME:-无}"

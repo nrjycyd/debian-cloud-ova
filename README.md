@@ -41,6 +41,7 @@
     | `主机名` | 虚拟机主机名 | `debian-cloud` | 字母/数字/连字符，≤ 63 字符 |
     | `启用 SSH` | 额外构建 SSH 镜像 | 不勾选 | 默认必建非 SSH 镜像；勾选后同时生成 SSH 镜像 |
     | `用户名` | 非 SSH 镜像的控制台用户 | `debian` | 必须为普通用户名；附加 SSH 镜像固定使用 root |
+    | `使用国内软件源` | 首次启动时配置 APT | 不勾选 | 清华普通软件源 + Debian 官方安全更新源；两种镜像采用相同设置 |
     | `登录密码` | 两种镜像共用的登录密码 | `123456` | 非 SSH 镜像用于普通用户，SSH 镜像用于 root；仅允许字母/数字及 `@#%+=.,_-`（构建日志中可见） |
 
 5. 构建完成后，在 **Releases** 页面下载生成的 `.ova` 文件。
@@ -107,52 +108,15 @@ sudo chage -d 0 debian
 
 ## 初始系统配置
 
-### 1. 替换软件源
+### 1. 软件源
 
-> [!NOTE]
-> Debian 12 及之前使用传统格式 `/etc/apt/sources.list`；Debian 13 变更为 `DEB822` 格式 `/etc/apt/sources.list.d/debian.sources`。
+- **不勾选使用国内软件源（默认）**：保留官方镜像的软件源配置。
+- **勾选使用国内软件源**：首次启动时将已有 Debian 官方普通软件源地址替换为清华镜像，安全更新使用 `https://security.debian.org/debian-security`。
+- 换源在 cloud-init 的 APT 配置和软件包安装前执行，适用于默认非 SSH 镜像及附加 SSH 镜像。
+- 按实际文件处理 `/etc/apt/sources.list`、`/etc/apt/sources.list.d/*.list`、`*.sources` 以及 `/etc/apt/mirrors/*.list`，保留版本代号、组件、签名校验和第三方软件源。原文件备份在 `/etc/apt/ova-source-backups/`，不额外添加重复源。
+- 构建日志、摘要及 Release 说明标明本次软件源设置。GitHub runner 的 Ubuntu 源和官方云镜像下载地址不受此选项影响。
 
-保留默认源文件不删除，将下面的内容**直接覆盖**到 `/etc/apt/sources.list.d/debian.sources`（官方默认源以注释形式保留，以 trixie 为例）：
-
-```text
-# 清华源（生效）
-Types: deb
-URIs: https://mirrors.tuna.tsinghua.edu.cn/debian
-Suites: trixie trixie-updates trixie-backports
-Components: main contrib non-free non-free-firmware
-Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
-
-# 官方安全更新（生效）
-Types: deb
-URIs: https://security.debian.org/debian-security
-Suites: trixie-security
-Components: main contrib non-free non-free-firmware
-Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
-
-# === 以下为默认的官方源，已注释保留，无需删除 ===
-# Types: deb
-# URIs: https://deb.debian.org/debian
-# Suites: trixie trixie-updates trixie-backports
-# Components: main contrib non-free non-free-firmware
-# Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
-#
-# Types: deb
-# URIs: https://security.debian.org/debian-security
-# Suites: trixie-security
-# Components: main contrib non-free non-free-firmware
-# Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
-```
-
-> 若你只想快速替换，也可以用 `sed` 把文件里的官方域名直接改成清华域名（不会引入重复源）：
-> ```bash
-> cp -a /etc/apt/mirrors/debian.list /etc/apt/mirrors/debian.list.bak-$(date +%Y%m%d) && printf 'https://mirrors.tuna.tsinghua.edu.cn/debian\n' > /etc/apt/mirrors/debian.list
-> ```
-
-更新源：
-
-```bash
-sudo apt update
-```
+[清华 Debian 镜像使用说明](https://mirrors.tuna.tsinghua.edu.cn/help/debian/)
 
 ### 2. 安装虚拟机工具集（非必须）
 
