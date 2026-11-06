@@ -380,9 +380,9 @@ jobs:
               ACTUAL_DISK_BYTES="$DISK_BYTES"
               ACTUAL_DISK_GIB=$(read_output "$OUTPUT" ACTUAL_DISK_GIB)
               if [[ "$mode" == true ]]; then
-                IMAGE_KIND='附加 SSH'; IMAGE_USER=root; IMAGE_LOGIN='SSH 密码登录'
+                IMAGE_KIND='ssh'; IMAGE_USER=root; IMAGE_LOGIN='SSH 密码登录'
               else
-                IMAGE_KIND='默认非 SSH'; IMAGE_USER="$LOGIN_USERNAME"; IMAGE_LOGIN='虚拟机控制台'
+                IMAGE_KIND='console'; IMAGE_USER="$LOGIN_USERNAME"; IMAGE_LOGIN='虚拟机控制台'
               fi
               printf '%s\n' "$FILE_NAME" >> "$ASSET_LIST"
               printf '| %s | %s | %s | %s | %s | %s | %s |\n' \
