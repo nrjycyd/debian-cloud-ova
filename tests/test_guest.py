@@ -108,7 +108,11 @@ class GuestTests(unittest.TestCase):
                 self.assertEqual(definition.read_bytes(), before)
                 self.assertEqual(linked.read_text(), "https://deb.debian.org/debian\n")
                 self.assertEqual(security.read_text(), "https://security.debian.org/debian-security\n")
-                self.assertEqual((apt / "ova-source-backups/mirrors/debian.list").read_bytes(), original)
+                self.assertEqual((apt / "mirrors/debian.list.bak").read_bytes(), original)
+                backups = {path.name: path.read_bytes() for path in (apt / "mirrors").glob("*.bak")}
+                self.assertEqual(module.configure_mirrors(apt, mirror), 0)
+                self.assertEqual(backups, {path.name: path.read_bytes() for path in (apt / "mirrors").glob("*.bak")})
+                self.assertFalse((apt / "ova-source-backups").exists())
                 # Restore to test the next mirror independently, preserving the first backup.
                 ordinary.write_bytes(original)
 

@@ -21,9 +21,8 @@ def configure_mirrors(apt_dir, mirror):
         updated = security.sub("https://security.debian.org/debian-security", original)
         updated = primary.sub(mirror, updated)
         if updated != original:
-            backup = apt_dir / "ova-source-backups" / path.relative_to(apt_dir)
+            backup = path.with_name(path.name + ".bak")
             if not backup.exists():
-                backup.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(path, backup)
             path.write_text(updated, encoding="utf-8")
             changed += 1

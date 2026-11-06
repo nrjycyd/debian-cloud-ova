@@ -120,7 +120,7 @@ sudo chage -d 0 debian
 
 - **官方源（默认）**：保留官方镜像的软件源配置。
 - **选择中国软件源**：首次启动时将已有 Debian 官方普通软件源地址替换为所选镜像站，安全更新仍使用 `https://security.debian.org/debian-security`。
-- 源地址文件位于 `/etc/apt/mirrors/*.list`，原文件备份在 `/etc/apt/ova-source-backups/mirrors/`。
+- 源地址文件位于 `/etc/apt/mirrors/*.list`；首次修改前在原目录备份为 `.bak`（如 `debian.list.bak`），已有备份不覆盖。
 
 | 选项 | 普通软件源地址 |
 | --- | --- |
