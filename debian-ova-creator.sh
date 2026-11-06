@@ -18,7 +18,7 @@ hostname="debian-cloud"
 username="debian"
 password="123456"
 enable_ssh="false"
-use_cn_mirror="false"
+apt_mirror="official"
 
 # 只读取顶层 virtual-size，避免匹配嵌套镜像信息中的同名字段。
 get_virtual_size() {
@@ -52,7 +52,7 @@ while getopts ":d:c:m:s:H:u:p:S:M:" opt; do
         u) username="$OPTARG" ;;
         p) password="$OPTARG" ;;
         S) enable_ssh="$OPTARG" ;;
-        M) use_cn_mirror="$OPTARG" ;;
+        M) apt_mirror="$OPTARG" ;;
         :) echo "[ERROR] Option -$OPTARG requires an argument" >&2; exit 1 ;;
         \?) echo "[ERROR] Invalid option -$OPTARG" >&2; exit 1 ;;
     esac
@@ -84,9 +84,13 @@ fi
 disk_size_gb=$((10#$disk_size_gb))
 
 # Validate username/password characters（防换行符注入 chpasswd / YAML 破坏）
-case "$use_cn_mirror" in
-    true|false) ;;
-    *) echo "[ERROR] Mirror option must be true or false" >&2; exit 1 ;;
+case "$apt_mirror" in
+    official) apt_mirror_uri="" ;;
+    tuna) apt_mirror_uri="https://mirrors.tuna.tsinghua.edu.cn/debian" ;;
+    ustc) apt_mirror_uri="https://mirrors.ustc.edu.cn/debian" ;;
+    aliyun) apt_mirror_uri="https://mirrors.aliyun.com/debian" ;;
+    huawei) apt_mirror_uri="https://repo.huaweicloud.com/debian" ;;
+    *) echo "[ERROR] Unsupported APT mirror" >&2; exit 1 ;;
 esac
 case "$enable_ssh" in
     true) username="root" ;;
@@ -193,7 +197,7 @@ echo "[INFO] Disk: ${disk_size_gb}GB"
 echo "[INFO] Hostname: $hostname"
 echo "[INFO] Username: $username"
 echo "[INFO] SSH Enabled: $enable_ssh"
-echo "[INFO] Domestic Mirror: $use_cn_mirror"
+echo "[INFO] APT Mirror: $apt_mirror"
 echo ""
 
 # --- 区域 1: ConfigDrive ISO 生成 (NoCloud 模式) ---
@@ -235,7 +239,7 @@ packages:
 EOFCONFIG
 
 # 保留已有源的格式、套件、组件和签名配置，阻止后续 APT 模块重新生成源。
-if [[ "$use_cn_mirror" == "true" ]]; then
+if [[ "$apt_mirror" != "official" ]]; then
     cat >> "$CLOUD_CONFIG_FILE" << 'EOFCONFIG'
 
 apt:
@@ -244,19 +248,22 @@ EOFCONFIG
 fi
 
 # 在 APT 配置和软件包安装前换源；关闭 SSH 时在此阶段同时屏蔽服务。
-if [[ "$use_cn_mirror" == "true" || "$enable_ssh" == "false" ]]; then
+if [[ "$apt_mirror" != "official" || "$enable_ssh" == "false" ]]; then
     cat >> "$CLOUD_CONFIG_FILE" << 'EOFCONFIG'
 
 bootcmd:
 EOFCONFIG
 fi
-if [[ "$use_cn_mirror" == "true" ]]; then
-    cat >> "$CLOUD_CONFIG_FILE" << 'EOFCONFIG'
+if [[ "$apt_mirror" != "official" ]]; then
+    cat >> "$CLOUD_CONFIG_FILE" << EOFCONFIG
   - |
-    cloud-init-per instance ova-domestic-apt /usr/bin/python3 - <<'PY'
+    cloud-init-per instance ova-domestic-apt /usr/bin/python3 - "$apt_mirror_uri" <<'PY'
+EOFCONFIG
+    cat >> "$CLOUD_CONFIG_FILE" << 'EOFCONFIG'
     from pathlib import Path
     import re
     import shutil
+    import sys
 
     apt_dir = Path("/etc/apt")
     paths = [apt_dir / "sources.list"]
@@ -271,7 +278,7 @@ if [[ "$use_cn_mirror" == "true" ]]; then
             continue
         original = path.read_text(encoding="utf-8")
         updated = security.sub("https://security.debian.org/debian-security", original)
-        updated = primary.sub("https://mirrors.tuna.tsinghua.edu.cn/debian", updated)
+        updated = primary.sub(sys.argv[1], updated)
         if updated != original:
             backup = apt_dir / "ova-source-backups" / path.relative_to(apt_dir)
             if not backup.exists():
@@ -557,7 +564,7 @@ echo "[INFO] Actual Disk: ${ACTUAL_DISK_GIB} GiB"
 echo "[INFO] Hostname: ${hostname}"
 echo "[INFO] Default User: ${username}"
 echo "[INFO] SSH Enabled: ${enable_ssh}"
-echo "[INFO] Domestic Mirror: ${use_cn_mirror}"
+echo "[INFO] APT Mirror: ${apt_mirror}"
 echo "[INFO] Config Method: NoCloud/ConfigDrive (ISO)"
 echo "[INFO] Auto Start: Disabled"
 echo ""

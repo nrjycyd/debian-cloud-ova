@@ -41,7 +41,7 @@
     | `主机名` | 虚拟机主机名 | `debian-cloud` | 字母/数字/连字符，≤ 63 字符 |
     | `启用 SSH` | 额外构建 SSH 镜像 | 不勾选 | 默认必建非 SSH 镜像；勾选后同时生成 SSH 镜像 |
     | `用户名` | 非 SSH 镜像的控制台用户 | `debian` | 必须为普通用户名；附加 SSH 镜像固定使用 root |
-    | `使用国内软件源` | 首次启动时配置 APT | 不勾选 | 清华普通软件源 + Debian 官方安全更新源；两种镜像采用相同设置 |
+    | `使用中国软件源` | 首次启动时配置 APT | `官方源` | 官方源 / 清华大学 / 中国科学技术大学 / 阿里云 / 华为云；两种镜像采用相同设置 |
     | `登录密码` | 两种镜像共用的登录密码 | `123456` | 非 SSH 镜像用于普通用户，SSH 镜像用于 root；仅允许字母/数字及 `@#%+=.,_-`（构建日志中可见） |
 
 5. 构建完成后，在 **Releases** 页面下载生成的 `.ova` 文件。
@@ -110,13 +110,18 @@ sudo chage -d 0 debian
 
 ### 1. 软件源
 
-- **不勾选使用国内软件源（默认）**：保留官方镜像的软件源配置。
-- **勾选使用国内软件源**：首次启动时将已有 Debian 官方普通软件源地址替换为清华镜像，安全更新使用 `https://security.debian.org/debian-security`。
+- **官方源（默认）**：保留官方镜像的软件源配置。
+- **选择中国软件源**：首次启动时将已有 Debian 官方普通软件源地址替换为所选镜像站，安全更新仍使用 `https://security.debian.org/debian-security`。
 - 换源在 cloud-init 的 APT 配置和软件包安装前执行，适用于默认非 SSH 镜像及附加 SSH 镜像。
 - 按实际文件处理 `/etc/apt/sources.list`、`/etc/apt/sources.list.d/*.list`、`*.sources` 以及 `/etc/apt/mirrors/*.list`，保留版本代号、组件、签名校验和第三方软件源。原文件备份在 `/etc/apt/ova-source-backups/`，不额外添加重复源。
 - 构建日志、摘要及 Release 说明标明本次软件源设置。GitHub runner 的 Ubuntu 源和官方云镜像下载地址不受此选项影响。
 
-[清华 Debian 镜像使用说明](https://mirrors.tuna.tsinghua.edu.cn/help/debian/)
+| 选项 | 普通软件源地址 |
+| --- | --- |
+| 清华大学 | `https://mirrors.tuna.tsinghua.edu.cn/debian` |
+| 中国科学技术大学 | `https://mirrors.ustc.edu.cn/debian` |
+| 阿里云 | `https://mirrors.aliyun.com/debian` |
+| 华为云 | `https://repo.huaweicloud.com/debian` |
 
 ### 2. 安装虚拟机工具集（非必须）
 

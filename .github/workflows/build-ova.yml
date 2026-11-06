@@ -64,11 +64,17 @@ on:
         required: false
         default: false
         type: boolean
-      use_cn_mirror:
-        description: '使用国内软件源'
-        required: false
-        default: false
-        type: boolean
+      apt_mirror:
+        description: '使用中国软件源'
+        required: true
+        default: '官方源'
+        type: choice
+        options:
+          - '官方源'
+          - '清华大学'
+          - '中国科学技术大学'
+          - '阿里云'
+          - '华为云'
       username:
         description: '用户名（非 SSH 镜像）'
         required: false
@@ -99,7 +105,7 @@ jobs:
       TARGET_USERNAME: ${{ github.event.inputs.username }}
       TARGET_PASSWORD: ${{ github.event.inputs.password }}
       TARGET_ENABLE_SSH: ${{ inputs.enable_ssh && 'true' || 'false' }}
-      TARGET_USE_CN_MIRROR: ${{ inputs.use_cn_mirror && 'true' || 'false' }}
+      TARGET_APT_MIRROR: ${{ inputs.apt_mirror }}
       # RELEASE_TAG: ${{ github.event.inputs.release_tag }}
 
     steps:
@@ -138,10 +144,13 @@ jobs:
             true|false) LOGIN_USERNAME="$TARGET_USERNAME" ;;
             *) echo "[ERROR] SSH 开关必须为 true 或 false"; exit 1 ;;
           esac
-          case "$TARGET_USE_CN_MIRROR" in
-            true) APT_SOURCE_LABEL='清华镜像（安全更新使用官方源）' ;;
-            false) APT_SOURCE_LABEL='官方' ;;
-            *) echo "[ERROR] 国内软件源开关必须为 true 或 false"; exit 1 ;;
+          case "$TARGET_APT_MIRROR" in
+            官方源) APT_MIRROR=official; APT_SOURCE_LABEL='官方源' ;;
+            清华大学) APT_MIRROR=tuna; APT_SOURCE_LABEL='清华大学' ;;
+            中国科学技术大学) APT_MIRROR=ustc; APT_SOURCE_LABEL='中国科学技术大学' ;;
+            阿里云) APT_MIRROR=aliyun; APT_SOURCE_LABEL='阿里云' ;;
+            华为云) APT_MIRROR=huawei; APT_SOURCE_LABEL='华为云' ;;
+            *) echo "[ERROR] 不支持的软件源选项"; exit 1 ;;
           esac
           if ! [[ "$LOGIN_USERNAME" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
               echo "[ERROR] 用户名不合法（小写字母开头，字母/数字/_/-，≤32 字符）"; exit 1
@@ -208,7 +217,7 @@ jobs:
               -u "$TARGET_USERNAME" \
               -p "$TARGET_PASSWORD" \
               -S "$mode" \
-              -M "$TARGET_USE_CN_MIRROR"
+              -M "$APT_MIRROR"
           }
           read_output() {
             python3 - "$1" "$2" <<'PY'
