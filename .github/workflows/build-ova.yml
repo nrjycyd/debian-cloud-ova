@@ -66,12 +66,12 @@ on:
         required: false
         default: 'debian-cloud'
       enable_ssh:
-        description: '启用 SSH（root 密码登录）'
+        description: '启用 SSH'
         required: false
         default: false
         type: boolean
       username:
-        description: '用户名（SSH 关闭时）'
+        description: '用户名（SSH 开启时固定为 root）'
         required: false
         default: 'debian'
       password:
