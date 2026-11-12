@@ -8,10 +8,15 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from tests.support import environment
-from config import catalog, from_environment, integer, select_targets, target, validate
+from config import (VARIANTS, VERSIONS, catalog, from_environment, integer, select_targets,
+                    target, validate)
 
 
 class ConfigTests(unittest.TestCase):
+    def test_source_variants_cover_supported_versions(self):
+        # 源镜像变体按版本查表，漏配会让构建在下载前抛 KeyError。
+        self.assertEqual(set(VARIANTS), set(VERSIONS))
+
     def test_catalog_rejects_label_drift_and_duplicates(self):
         items = catalog()
         changes = (

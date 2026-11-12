@@ -5,10 +5,11 @@ import json
 import re
 import sys
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
-from config import VERSIONS
+from config import VARIANTS, VERSIONS
 
 BASE = "https://cloud.debian.org/images/cloud"
 
@@ -18,27 +19,38 @@ def fetch(url):
         try:
             with urllib.request.urlopen(url, timeout=60) as response:
                 return response.read()
+        except urllib.error.HTTPError as error:
+            # 4xx 说明官方路径已失效，重试没有意义；5xx 仍按网络错误重试。
+            if error.code < 500 or attempt == 2:
+                raise ValueError(f"官方镜像信息获取失败（HTTP {error.code}）：{url}") from error
+            time.sleep(1 + attempt)
         except OSError:
             if attempt == 2:
                 raise
             time.sleep(1 + attempt)
 
 
+def stem(version):
+    """Debian 官方镜像文件名前缀：变体按版本区分，不能写死。"""
+    return f"debian-{version}-{VARIANTS[version]}-amd64"
+
+
 def resolve(version):
     codename = VERSIONS[version]
-    stem = f"debian-{version}-genericcloud-amd64"
-    metadata = json.loads(fetch(f"{BASE}/{codename}/latest/{stem}.json"))
+    variant = VARIANTS[version]
+    image = stem(version)
+    metadata = json.loads(fetch(f"{BASE}/{codename}/latest/{image}.json"))
     builds = [item["data"]["info"] for item in metadata["items"] if item.get("kind") == "Build"]
     if len(builds) != 1:
         raise ValueError("官方元数据缺少唯一的 Build 信息")
     info = builds[0]
     if any(info.get(key) != expected for key, expected in
-           (("release", codename), ("arch", "amd64"), ("vendor", "genericcloud"))):
-        raise ValueError("官方镜像元数据与请求的镜像不匹配")
+           (("release", codename), ("arch", "amd64"), ("vendor", variant))):
+        raise ValueError(f"官方镜像元数据与请求的 {image} 镜像不匹配")
     build = info["version"]
     if not re.fullmatch(r"[0-9]{8}-[0-9]+", build):
         raise ValueError("无法识别官方 build 号，停止构建")
-    filename = f"{stem}-{build}.qcow2"
+    filename = f"{image}-{build}.qcow2"
     directory = f"{BASE}/{codename}/{build}"
     checksums = fetch(f"{directory}/SHA512SUMS").decode("utf-8")
     matches = [line.split()[0] for line in checksums.splitlines()
@@ -53,7 +65,7 @@ def validate(source, version):
     if source["debian_version"] != version or not re.fullmatch(r"[0-9]{8}-[0-9]+", source["build"]):
         raise ValueError("源镜像版本不匹配")
     expected = (f"{BASE}/{VERSIONS[version]}/{source['build']}/"
-                f"debian-{version}-genericcloud-amd64-{source['build']}.qcow2")
+                f"{stem(version)}-{source['build']}.qcow2")
     if source["url"] != expected or not re.fullmatch(r"[a-f0-9]{128}", source["sha512"]):
         raise ValueError("源镜像地址或摘要无效")
     return source
