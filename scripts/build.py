@@ -27,7 +27,8 @@ def run_batch(env):
     work = Path(env["RUNNER_TEMP"])
     source = resolve(settings["version"])
     release = policy(env.get("GITHUB_REF", ""), settings["version"], source["build"])
-    print(f"[INFO] Debian 官方源版本：{source['build']}；正在下载并校验 SHA512", flush=True)
+    print(f"[INFO] Debian 官方源版本：{source['build']}"
+          f"（{source['url'].rsplit('/', 1)[-1]}）；正在下载并校验 SHA512", flush=True)
     source_manifest = work / "debian-source.json"
     source_manifest.write_text(json.dumps(source, indent=2) + "\n")
     source_image = work / "debian-source.qcow2"

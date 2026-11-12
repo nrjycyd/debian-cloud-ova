@@ -6,8 +6,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 VERSIONS = {"12": "bookworm", "13": "trixie"}
-# 官方镜像变体随版本不同：Debian 13 起不再发布 genericcloud，cloud-init 已并入 generic。
-VARIANTS = {"12": "genericcloud", "13": "generic"}
 MIRRORS = {
     "official": ("官方源", ""),
     "tuna": ("清华大学", "https://mirrors.tuna.tsinghua.edu.cn/debian"),

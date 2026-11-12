@@ -9,9 +9,12 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from config import VARIANTS, VERSIONS
+from config import VERSIONS
 
 BASE = "https://cloud.debian.org/images/cloud"
+# 官方变体按优先级尝试：genericcloud 用云内核、镜像更小；generic 用标准内核、兼容性最好。
+# 发布目录曾只提升部分变体（daily 目录同时仍产出 genericcloud），因此不按版本写死。
+VARIANTS = ("genericcloud", "generic")
 
 
 def fetch(url):
@@ -20,9 +23,9 @@ def fetch(url):
             with urllib.request.urlopen(url, timeout=60) as response:
                 return response.read()
         except urllib.error.HTTPError as error:
-            # 4xx 说明官方路径已失效，重试没有意义；5xx 仍按网络错误重试。
+            # 4xx 说明官方地址已失效，重试没有意义；5xx 仍按网络错误重试。
             if error.code < 500 or attempt == 2:
-                raise ValueError(f"官方镜像信息获取失败（HTTP {error.code}）：{url}") from error
+                raise
             time.sleep(1 + attempt)
         except OSError:
             if attempt == 2:
@@ -30,43 +33,61 @@ def fetch(url):
             time.sleep(1 + attempt)
 
 
-def stem(version):
-    """Debian 官方镜像文件名前缀：变体按版本区分，不能写死。"""
-    return f"debian-{version}-{VARIANTS[version]}-amd64"
+def image_name(version, variant):
+    """Debian 官方镜像文件名前缀；变体随发布目录不同，不能写死。"""
+    return f"debian-{version}-{variant}-amd64"
 
 
 def resolve(version):
     codename = VERSIONS[version]
-    variant = VARIANTS[version]
-    image = stem(version)
-    metadata = json.loads(fetch(f"{BASE}/{codename}/latest/{image}.json"))
-    builds = [item["data"]["info"] for item in metadata["items"] if item.get("kind") == "Build"]
-    if len(builds) != 1:
-        raise ValueError("官方元数据缺少唯一的 Build 信息")
-    info = builds[0]
-    if any(info.get(key) != expected for key, expected in
-           (("release", codename), ("arch", "amd64"), ("vendor", variant))):
-        raise ValueError(f"官方镜像元数据与请求的 {image} 镜像不匹配")
-    build = info["version"]
-    if not re.fullmatch(r"[0-9]{8}-[0-9]+", build):
-        raise ValueError("无法识别官方 build 号，停止构建")
-    filename = f"{image}-{build}.qcow2"
-    directory = f"{BASE}/{codename}/{build}"
-    checksums = fetch(f"{directory}/SHA512SUMS").decode("utf-8")
-    matches = [line.split()[0] for line in checksums.splitlines()
-               if len(line.split()) == 2 and line.split()[1].lstrip("*") == filename]
-    if len(matches) != 1 or not re.fullmatch(r"[a-fA-F0-9]{128}", matches[0]):
-        raise ValueError("官方校验和缺失或不唯一，停止构建")
-    return {"debian_version": version, "build": build, "url": f"{directory}/{filename}",
-            "sha512": matches[0].lower()}
+    missing = []
+    for variant in VARIANTS:
+        image = image_name(version, variant)
+        url = f"{BASE}/{codename}/latest/{image}.json"
+        try:
+            metadata = json.loads(fetch(url))
+        except urllib.error.HTTPError as error:
+            if error.code != 404:
+                raise ValueError(f"官方镜像信息获取失败（HTTP {error.code}）：{url}") from error
+            missing.append((image, url))
+            continue
+        builds = [item["data"]["info"] for item in metadata["items"] if item.get("kind") == "Build"]
+        if len(builds) != 1:
+            raise ValueError("官方元数据缺少唯一的 Build 信息")
+        info = builds[0]
+        if any(info.get(key) != expected for key, expected in
+               (("release", codename), ("arch", "amd64"), ("vendor", variant))):
+            raise ValueError(f"官方镜像元数据与请求的 {image} 镜像不匹配")
+        build = info["version"]
+        if not re.fullmatch(r"[0-9]{8}-[0-9]+", build):
+            raise ValueError("无法识别官方 build 号，停止构建")
+        filename = f"{image}-{build}.qcow2"
+        directory = f"{BASE}/{codename}/{build}"
+        sums_url = f"{directory}/SHA512SUMS"
+        try:
+            checksums = fetch(sums_url).decode("utf-8")
+        except urllib.error.HTTPError as error:
+            raise ValueError(f"官方校验和获取失败（HTTP {error.code}）：{sums_url}") from error
+        matches = [line.split()[0] for line in checksums.splitlines()
+                   if len(line.split()) == 2 and line.split()[1].lstrip("*") == filename]
+        if len(matches) != 1 or not re.fullmatch(r"[a-fA-F0-9]{128}", matches[0]):
+            raise ValueError("官方校验和缺失或不唯一，停止构建")
+        if missing:
+            names = ", ".join(name for name, _ in missing)
+            print(f"[WARN] 官方 latest 缺少 {names}，本次改用 {image}", file=sys.stderr)
+        return {"debian_version": version, "build": build, "url": f"{directory}/{filename}",
+                "sha512": matches[0].lower()}
+    raise ValueError("官方 latest 缺少全部已知变体："
+                     + "、".join(url for _, url in missing) + "，停止构建")
 
 
 def validate(source, version):
     if source["debian_version"] != version or not re.fullmatch(r"[0-9]{8}-[0-9]+", source["build"]):
         raise ValueError("源镜像版本不匹配")
-    expected = (f"{BASE}/{VERSIONS[version]}/{source['build']}/"
-                f"{stem(version)}-{source['build']}.qcow2")
-    if source["url"] != expected or not re.fullmatch(r"[a-f0-9]{128}", source["sha512"]):
+    directory = f"{BASE}/{VERSIONS[version]}/{source['build']}"
+    names = {f"{image_name(version, variant)}-{source['build']}.qcow2" for variant in VARIANTS}
+    allowed = {f"{directory}/{name}" for name in names}
+    if source["url"] not in allowed or not re.fullmatch(r"[a-f0-9]{128}", source["sha512"]):
         raise ValueError("源镜像地址或摘要无效")
     return source
 
