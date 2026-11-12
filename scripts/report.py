@@ -31,32 +31,35 @@ def image_table(manifest, password=""):
     return "\n".join(lines)
 
 
+def extra_packages(settings):
+    """首次启动时加装的软件包；未勾选则为「无」。"""
+    return "open-vm-tools" if settings["install_vm_tools"] else "无"
+
+
 def release_notes(manifest, password):
     validate_manifest(manifest)
     settings = manifest["settings"]
     return f"""## Debian 云镜像 OVA
 
-**构建配置：**
-- Debian 版本：**{settings['version']}**
-- Debian Build 号：**{manifest['source']['build']}**
-- 源镜像变体：**{manifest['source']['variant']}**
-- vCPU：**{settings['vcpu']}**
-- 内存：**{settings['memory']}MB**
-- 磁盘大小：**{manifest['images'][0]['disk_gib']} GB**
-- 主机名：**{settings['hostname']}**
-- 软件源：**{MIRRORS[settings['mirror']][0]}**
-- 安装 open-vm-tools：**{str(settings['install_vm_tools']).lower()}**
-- 时区：**{settings['timezone']}**
-- 默认镜像：**console（普通用户，SSH 保持源镜像默认配置）**
-- 构建时间：**{manifest['build_time']}**
+构建配置：
+- Debian 版本：{settings['version']}
+- Debian Build 号：{manifest['source']['build']}
+- 源镜像变体：{manifest['source']['variant']}
+- vCPU：{settings['vcpu']}
+- 内存：{settings['memory']}MB
+- 磁盘大小：{manifest['images'][0]['disk_gib']} GB
+- 主机名：{settings['hostname']}
+- 软件源：{MIRRORS[settings['mirror']][0]}
+- 加装包：{extra_packages(settings)}
+- 时区：{settings['timezone']}
+- 构建时间：{manifest['build_time']}
 
 {image_table(manifest, password)}
-
-资产名：`debian<版本>-<变体>-<架构>-<ESXi>-vmx<版本>-<DGNU>-<console|ssh>.ova`，完整文件名见下方 Assets。
 
 **快速开始：**
 1. 从 Release 资产中下载 OVA 文件
 2. 导入 VMware 或兼容的虚拟化平台
+3. ssh 模式需等待 cloud-init 完成后执行 `ssh root@<虚拟机 IP>`
 
 """
 
@@ -77,7 +80,7 @@ def summary(manifest, env):
              f"- 发布标签：{manifest['release']['tag']}\n"
              f"- 源镜像变体：{manifest['source']['variant']}\n"
              f"- 软件源：{MIRRORS[settings['mirror']][0]}\n"
-             f"- 安装 open-vm-tools：{str(settings['install_vm_tools']).lower()}\n"
+             f"- 加装包：{extra_packages(settings)}\n"
              f"- 时区：{settings['timezone']}\n"
              f"- 请求磁盘容量：{settings['disk']} GiB\n"
              f"- 实际磁盘容量：{manifest['images'][0]['disk_gib']} GiB\n\n")
