@@ -53,9 +53,9 @@ def release_notes(manifest, password):
 
 
 def release_title(manifest):
+    # 标题只保留版本与变体；build 号由 Release 的 tag 展示，避免标题过长。
     validate_manifest(manifest)
-    return (f"Debian {manifest['settings']['version']} {manifest['source']['variant']} "
-            f"OVA - {manifest['release']['tag']}")
+    return f"Debian {manifest['settings']['version']} · {manifest['source']['variant']}"
 
 
 def summary(manifest, env):

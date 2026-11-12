@@ -14,7 +14,7 @@ class ManifestTests(unittest.TestCase):
         notes = release_notes(manifest, "123456")
         self.assertIn("密码：`123456`", notes)
         self.assertIn(f"源镜像变体：**{variant}**", notes)
-        self.assertEqual(release_title(manifest), f"Debian 13 {variant} OVA - 20261106-1234")
+        self.assertEqual(release_title(manifest), f"Debian 13 · {variant}")
         self.assertNotIn("123456", str(manifest))
 
     def test_missing_fields_explain_which_format_failed(self):

@@ -16,7 +16,7 @@
 - **系统与机型**：支持 Debian 12 (Bookworm)、13 (Trixie)，每次选择一个系统和最多四种 ESXi + Guest OS 组合，重复组合自动去重。Guest OS 标识（DGNU）与实际系统版本独立。
 - **硬件定制**：自定义 vCPU、内存和磁盘；磁盘容量不足时自动采用源镜像容量。
 - **初始化配置**：配置主机名、账户、密码、软件源、时区和 open-vm-tools；SSH 镜像额外启用 root 密码登录。
-- **构建发布**：在 GitHub Actions 手动构建，完成后从 Releases 下载 OVA；Release 标题与说明标注源镜像变体，候选顺序由 `scripts/config.py` 的 `VARIANTS` 决定（默认 `genericcloud` 优先、缺失回退 `generic`）。
+- **构建发布**：在 GitHub Actions 手动构建，完成后从 Releases 下载 OVA；Release 标题形如 `Debian 13 · generic`（build 号见 Release 的 tag），说明中标注源镜像变体，候选顺序由 `scripts/config.py` 的 `VARIANTS` 决定（默认 `genericcloud` 优先、缺失回退 `generic`）。
 
 ---
 

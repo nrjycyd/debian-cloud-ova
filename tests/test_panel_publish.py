@@ -76,7 +76,7 @@ class PublishTests(unittest.TestCase):
             with self.subTest(mode=mode, ref=ref), tempfile.TemporaryDirectory() as directory:
                 work = Path(directory)
                 executable = work / "gh"
-                title = f"Debian 12 {VARIANTS[0]} OVA - 20261106-1234"
+                title = f"Debian 12 · {VARIANTS[0]}"
                 executable.write_text('''#!/usr/bin/python3
 import json, os, sys
 from pathlib import Path
