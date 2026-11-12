@@ -74,7 +74,8 @@ def main():
             "instance-id": f"debian-{settings['version']}-{secrets.token_hex(8)}",
             "local-hostname": settings["hostname"],
         }) + "\n")
-        print(f"{settings['vcpu']} {settings['memory']} {settings['disk']} {settings['username']} {source['sha512']}")
+        print(f"{settings['vcpu']} {settings['memory']} {settings['disk']} {settings['username']} "
+              f"{source['sha512']} {source['variant']}")
     elif action == "ovf":
         template = (ROOT / "templates/appliance.ovf").read_text(encoding="utf-8")
         Path(sys.argv[2]).write_text(Template(template).substitute(os.environ))

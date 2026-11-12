@@ -61,8 +61,9 @@ export VIRTUAL_SYSTEM_TYPE OVF_OS_ID OVF_OS_TYPE OVA_SOURCE_MANIFEST
 
 DEBIAN_VERSION="$debver"
 DEBIAN_ARCH=amd64
-# 源镜像变体由 source.resolve 统一按 genericcloud → generic 选择，内部文件名保持中性。
-FILE_NAME="debian-${DEBIAN_VERSION}-cloud-${DEBIAN_ARCH}"
+# 变体由 render_cloud_config 从已校验的源镜像元数据读出（genericcloud/generic），
+# 文件名与官方源镜像一致；此处先留空，清理逻辑会跳过依赖它的临时文件。
+FILE_NAME=''
 FILE_ORIG_EXT=qcow2
 FILE_DEST_EXT=vmdk
 FILE_SIGN_EXT=mf
@@ -76,7 +77,11 @@ META_CONFIG_FILE="$BUILD_TEMP/meta-data"
 cleanup() {
     local status=$?
     trap - EXIT
-    if ! rm -f -- "$CLOUD_CONFIG_FILE" "$META_CONFIG_FILE" "$ISO_FILE_NAME" "${FILE_NAME}.qcow2.part"; then
+    local artifacts=("$CLOUD_CONFIG_FILE" "$META_CONFIG_FILE" "$ISO_FILE_NAME")
+    if [[ -n "$FILE_NAME" ]]; then
+        artifacts+=("${FILE_NAME}.qcow2.part")
+    fi
+    if ! rm -f -- "${artifacts[@]}"; then
         echo "[WARN] 无法完全清理临时凭据或镜像文件，请检查：$BUILD_TEMP" >&2
     fi
     if ! rmdir -- "$BUILD_TEMP"; then
@@ -112,7 +117,7 @@ render_cloud_config() {
     normalized=$(python3 "$SCRIPT_DIR/scripts/render.py" cloud "$CLOUD_CONFIG_FILE" "$META_CONFIG_FILE" \
         "$debver" "$vcpu" "$memory" "$disk_size_gb" "$hostname" "$username" "$password" \
         "$enable_ssh" "$apt_mirror" "$install_vm_tools" "$guest_timezone")
-    read -r vcpu memory disk_size_gb username EXPECTED_SOURCE_HASH <<< "$normalized"
+    read -r vcpu memory disk_size_gb username EXPECTED_SOURCE_HASH IMAGE_VARIANT <<< "$normalized"
     cloud-localds "$ISO_FILE_NAME" "$CLOUD_CONFIG_FILE" "$META_CONFIG_FILE"
     ISO_FILE_SIZE=$(wc -c < "$ISO_FILE_NAME")
 }
@@ -256,6 +261,8 @@ MANIFEST
 }
 
 render_cloud_config
+# 官方源镜像名形如 debian-13-genericcloud-amd64，工作副本沿用同一名字。
+FILE_NAME="debian-${DEBIAN_VERSION}-${IMAGE_VARIANT}-${DEBIAN_ARCH}"
 # 共享校验已拒绝无效机型组合，此处仅生成文件名标识。
 case "$VIRTUAL_SYSTEM_TYPE" in
     vmx-14|vmx-15) ESXI_TAG=esxi6.7 ;;
@@ -267,7 +274,7 @@ GUEST_TAG="dgnu${OVF_OS_TYPE#debian}"
 GUEST_TAG="${GUEST_TAG%_64Guest}"
 MODE=console
 if [[ "$enable_ssh" == true ]]; then MODE=ssh; fi
-OUTPUT_NAME="debian${DEBIAN_VERSION}-generic-cloud-${ESXI_TAG}-vmx${VIRTUAL_SYSTEM_TYPE#vmx-}-${GUEST_TAG}-${DEBIAN_ARCH}-${MODE}"
+OUTPUT_NAME="debian${DEBIAN_VERSION}-${IMAGE_VARIANT}-${DEBIAN_ARCH}-${ESXI_TAG}-vmx${VIRTUAL_SYSTEM_TYPE#vmx-}-${GUEST_TAG}-${MODE}"
 
 prepare_source_copy
 prepare_disk

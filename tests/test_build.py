@@ -122,7 +122,7 @@ class BuildTests(unittest.TestCase):
         with build_fixture() as (work, env):
             env.update(environment(), TARGET_ENABLE_SSH="false", TARGET_BUILD_2="不构建", TARGET_BUILD_3="", TARGET_BUILD_4="")
             self.batch(env)
-            disk = work / "debian-13-cloud-amd64.qcow2"
+            disk = work / "debian-13-genericcloud-amd64.qcow2"
             with disk.open("ab") as output:
                 output.write(b"externally modified\n")
             self.batch(env)
