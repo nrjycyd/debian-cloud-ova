@@ -2,8 +2,9 @@ import copy
 import unittest
 
 from tests.support import sample_manifest
+from config import catalog
 from manifest import validate
-from report import release_notes, release_title, summary
+from report import image_table, release_notes, release_title, short_target, summary
 
 
 class ManifestTests(unittest.TestCase):
@@ -16,6 +17,19 @@ class ManifestTests(unittest.TestCase):
         self.assertIn(f"源镜像变体：**{variant}**", notes)
         self.assertEqual(release_title(manifest), f"Debian 13 · {variant}")
         self.assertNotIn("123456", str(manifest))
+
+    def test_image_table_stays_compact(self):
+        table = image_table(sample_manifest()).splitlines()
+        self.assertEqual(table[0], "| 目标 | 模式 | 登录 | 大小 |")
+        for row in table[2:]:
+            self.assertEqual(row.count("|"), 5)
+        for item in catalog():
+            short = short_target(item["label"])
+            self.assertNotIn("ESXi", short)
+            self.assertNotIn("(", short)
+            self.assertEqual(short.count(" · "), 2)
+            self.assertLessEqual(len(short), 30)
+        self.assertEqual(short_target("未匹配的标签"), "未匹配的标签")
 
     def test_missing_fields_explain_which_format_failed(self):
         for key in ("settings", "source", "release", "images", "build_time", "target_count"):

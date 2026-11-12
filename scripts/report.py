@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -10,13 +11,23 @@ from release import validate as validate_release
 from manifest import validate as validate_manifest
 
 
+def short_target(target):
+    """把工作流里的完整机型标签压成表格用的短标签，避免单元格折行。"""
+    match = re.fullmatch(r"ESXi (.+?) \+ DGNU (\d+) \((vmx-\d+)\)", target)
+    if not match:
+        return target
+    version, dgnu, vmx = match.groups()
+    return f"{version.replace(' ', '')} · DGNU{dgnu} · {vmx.replace('-', '')}"
+
+
 def image_table(manifest):
-    lines = ["| 构建目标 | 镜像 | 文件 | 登录账户 | 登录方式 | 文件大小 | 磁盘大小 |",
-             "| --- | --- | --- | --- | --- | --- | --- |"]
+    # 只保留四列：文件名由 Release 的 Assets 展示，磁盘容量在构建配置里已列出。
+    lines = ["| 目标 | 模式 | 登录 | 大小 |",
+             "| --- | --- | --- | --- |"]
     for image in manifest["images"]:
-        login = "SSH 密码登录" if image["kind"] == "ssh" else "虚拟机控制台"
-        lines.append(f"| {image['target']} | {image['kind']} | {image['filename']} | "
-                     f"{image['username']} | {login} | {image['size']} | {image['disk_gib']} GB |")
+        login = "SSH 密码" if image["kind"] == "ssh" else "控制台"
+        lines.append(f"| {short_target(image['target'])} | {image['kind']} | "
+                     f"{image['username']}（{login}） | {image['size']} |")
     return "\n".join(lines)
 
 
@@ -40,6 +51,8 @@ def release_notes(manifest, password):
 - 构建时间：**{manifest['build_time']}**
 
 {image_table(manifest)}
+
+资产名：`debian<版本>-<变体>-<架构>-<ESXi>-vmx<版本>-<DGNU>-<console|ssh>.ova`，完整文件名见下方 Assets。
 
 **快速开始：**
 1. 从 Release 资产中下载 OVA 文件
