@@ -41,7 +41,7 @@ def release_notes(manifest, password):
     settings = manifest["settings"]
     return f"""## Debian 云镜像 OVA
 
-构建配置：
+**构建配置：**
 - Debian 版本：{settings['version']}
 - Debian Build 号：{manifest['source']['build']}
 - 源镜像变体：{manifest['source']['variant']}

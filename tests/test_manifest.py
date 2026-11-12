@@ -21,7 +21,8 @@ class ManifestTests(unittest.TestCase):
         self.assertNotIn("开机并使用以下凭据登录", notes)
         self.assertNotIn("默认镜像", notes)
         self.assertNotIn("资产名：", notes)
-        self.assertNotIn("**", notes.split("**快速开始：**")[0])
+        self.assertIn("**构建配置：**", notes)
+        self.assertIn("**快速开始：**", notes)
         self.assertEqual(release_title(manifest), f"Debian 13 · {variant}")
         self.assertNotIn("123456", str(manifest))
 
