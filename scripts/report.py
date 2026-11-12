@@ -20,14 +20,14 @@ def short_target(target):
     return f"{version.replace(' ', '')} · DGNU{dgnu} · {vmx.replace('-', '')}"
 
 
-def image_table(manifest):
-    # 只保留四列：文件名由 Release 的 Assets 展示，磁盘容量在构建配置里已列出。
-    lines = ["| 目标 | 模式 | 登录 | 大小 |",
-             "| --- | --- | --- | --- |"]
+def image_table(manifest, password=""):
+    # 文件名由 Release 的 Assets 展示，磁盘容量在构建配置里已列出，表格保持窄。
+    lines = ["| 目标 | 模式 | 账号 | 密码 | 登录方式 | 大小 |",
+             "| --- | --- | --- | --- | --- | --- |"]
     for image in manifest["images"]:
         login = "SSH 密码" if image["kind"] == "ssh" else "控制台"
-        lines.append(f"| {short_target(image['target'])} | {image['kind']} | "
-                     f"{image['username']}（{login}） | {image['size']} |")
+        lines.append(f"| {short_target(image['target'])} | {image['kind']} | {image['username']} | "
+                     f"{password} | {login} | {image['size']} |")
     return "\n".join(lines)
 
 
@@ -50,17 +50,13 @@ def release_notes(manifest, password):
 - 默认镜像：**console（普通用户，SSH 保持源镜像默认配置）**
 - 构建时间：**{manifest['build_time']}**
 
-{image_table(manifest)}
+{image_table(manifest, password)}
 
 资产名：`debian<版本>-<变体>-<架构>-<ESXi>-vmx<版本>-<DGNU>-<console|ssh>.ova`，完整文件名见下方 Assets。
 
 **快速开始：**
 1. 从 Release 资产中下载 OVA 文件
 2. 导入 VMware 或兼容的虚拟化平台
-3. 开机并使用以下凭据登录：
-   - console 镜像：通过虚拟机控制台登录，用户名 `{settings['username']}`
-   - SSH 镜像（如有）：等待 cloud-init 完成后执行 `ssh root@<虚拟机 IP>`
-   - 密码：`{password}`
 
 """
 
@@ -87,7 +83,7 @@ def summary(manifest, env):
              f"- 实际磁盘容量：{manifest['images'][0]['disk_gib']} GiB\n\n")
     if env["BUILD_STATUS"] != "success":
         text += "构建已完成，但发布未成功完成，请检查发布步骤。\n\n"
-    return text + image_table(manifest) + "\n"
+    return text + image_table(manifest, env.get("TARGET_PASSWORD", "")) + "\n"
 
 
 def main():

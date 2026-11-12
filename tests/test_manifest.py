@@ -13,16 +13,19 @@ class ManifestTests(unittest.TestCase):
         variant = manifest["source"]["variant"]
         self.assertIs(validate(manifest), manifest)
         notes = release_notes(manifest, "123456")
-        self.assertIn("密码：`123456`", notes)
+        self.assertIn("| 目标 | 模式 | 账号 | 密码 | 登录方式 | 大小 |", notes)
+        self.assertIn("| 123456 |", notes)
         self.assertIn(f"源镜像变体：**{variant}**", notes)
+        self.assertNotIn("开机并使用以下凭据登录", notes)
         self.assertEqual(release_title(manifest), f"Debian 13 · {variant}")
         self.assertNotIn("123456", str(manifest))
 
     def test_image_table_stays_compact(self):
-        table = image_table(sample_manifest()).splitlines()
-        self.assertEqual(table[0], "| 目标 | 模式 | 登录 | 大小 |")
+        table = image_table(sample_manifest(), "123456").splitlines()
+        self.assertEqual(table[0], "| 目标 | 模式 | 账号 | 密码 | 登录方式 | 大小 |")
         for row in table[2:]:
-            self.assertEqual(row.count("|"), 5)
+            self.assertEqual(row.count("|"), 7)
+            self.assertIn("| 123456 |", row)
         for item in catalog():
             short = short_target(item["label"])
             self.assertNotIn("ESXi", short)
