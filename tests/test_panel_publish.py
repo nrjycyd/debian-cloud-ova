@@ -8,7 +8,7 @@ from pathlib import Path
 import yaml
 
 from tests.support import ROOT
-from config import MIRRORS, TIMEZONES, VERSIONS, catalog
+from config import MIRRORS, TIMEZONES, VARIANTS, VERSIONS, catalog
 from panel import validate as validate_panel
 from release import policy
 
@@ -76,6 +76,7 @@ class PublishTests(unittest.TestCase):
             with self.subTest(mode=mode, ref=ref), tempfile.TemporaryDirectory() as directory:
                 work = Path(directory)
                 executable = work / "gh"
+                title = f"Debian 12 {VARIANTS[0]} OVA - 20261106-1234"
                 executable.write_text('''#!/usr/bin/python3
 import json, os, sys
 from pathlib import Path
@@ -89,21 +90,21 @@ assert tag == '20261106-1234'
 assert os.environ['GITHUB_REF'] == 'refs/heads/main'
 if command in ('create', 'edit'):
     assert '--prerelease=false' in sys.argv
-    assert sys.argv[sys.argv.index('--title') + 1] == 'Debian 12 genericcloud OVA - 20261106-1234'
+    assert sys.argv[sys.argv.index('--title') + 1] == '__TITLE__'
 if command == 'view': sys.exit(0 if mode in ('existing', 'upload-error') or (mode == 'race' and history) else 1)
 if command == 'create':
     assert '--target' in sys.argv and os.environ['GITHUB_SHA'] in sys.argv
     if mode in ('race', 'network-error'): print('CREATE_ORIGINAL_403', file=sys.stderr); sys.exit(47)
     sys.exit(0)
 if command == 'upload': sys.exit(1 if mode == 'upload-error' else 0)
-''')
+'''.replace("__TITLE__", title))
                 executable.chmod(0o755)
                 asset = work / "test-console.ova"
                 asset.touch()
                 manifest = {"settings": {"version": "12", "vcpu": 2, "memory": 1024, "disk": 4, "hostname": "test",
                                          "username": "debian", "mirror": "official", "install_vm_tools": True,
                                          "timezone": "UTC"},
-                            "source": {"build": "20261106-1234", "variant": "genericcloud"},
+                            "source": {"build": "20261106-1234", "variant": VARIANTS[0]},
                             "build_time": "now", "target_count": 1,
                             "release": policy(ref, "12", "20261106-1234"),
                             "images": [{"target": "ESXi 7", "kind": "console", "filename": asset.name,

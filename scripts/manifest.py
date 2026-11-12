@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from config import MIRRORS, TIMEZONES, VARIANTS, VERSIONS
+from config import KNOWN_VARIANTS, MIRRORS, TIMEZONES, VERSIONS
 
 
 def require(mapping, key, expected, prefix=""):
@@ -38,7 +38,7 @@ def validate(manifest):
     if settings["version"] not in VERSIONS or settings["mirror"] not in MIRRORS or settings["timezone"] not in TIMEZONES:
         raise ValueError("构建清单包含不支持的系统版本、软件源或时区")
     require(source, "build", str, "source")
-    if require(source, "variant", str, "source") not in VARIANTS:
+    if require(source, "variant", str, "source") not in KNOWN_VARIANTS:
         raise ValueError("构建清单 source.variant 不是受支持的镜像变体")
     require(release, "tag", str, "release")
     filenames = set()

@@ -16,7 +16,7 @@
 - **系统与机型**：支持 Debian 12 (Bookworm)、13 (Trixie)，每次选择一个系统和最多四种 ESXi + Guest OS 组合，重复组合自动去重。Guest OS 标识（DGNU）与实际系统版本独立。
 - **硬件定制**：自定义 vCPU、内存和磁盘；磁盘容量不足时自动采用源镜像容量。
 - **初始化配置**：配置主机名、账户、密码、软件源、时区和 open-vm-tools；SSH 镜像额外启用 root 密码登录。
-- **构建发布**：在 GitHub Actions 手动构建，完成后从 Releases 下载 OVA；Release 标题与说明标注源镜像变体（`genericcloud` 优先，缺失时回退 `generic`）。
+- **构建发布**：在 GitHub Actions 手动构建，完成后从 Releases 下载 OVA；Release 标题与说明标注源镜像变体，候选顺序由 `scripts/config.py` 的 `VARIANTS` 决定（默认 `genericcloud` 优先、缺失回退 `generic`）。
 
 ---
 
@@ -47,7 +47,7 @@
     | `时区` | 虚拟机系统时区 | `UTC` | 上海、香港、新加坡、东京、伦敦、柏林、纽约或 UTC；两种镜像共用 |
     | `登录密码` | 两种镜像共用的登录密码 | `123456` | console 镜像用于普通用户，SSH 镜像用于 root；仅允许字母/数字及 `@#%+=.,_-`（构建日志中可见） |
 
-5. 构建完成后，在 **Releases** 页面下载生成的 `.ova` 文件。资产名含系统版本与源镜像变体，例如 `debian13-generic-amd64-esxi6.7-vmx15-dgnu10-console.ova`。
+5. 构建完成后，在 **Releases** 页面下载生成的 `.ova` 文件。资产名形如 `debian<版本>-<变体>-amd64-<ESXi>-vmx<版本>-<DGNU>-<console|ssh>.ova`，其中变体取自实际使用的源镜像（如当前的 `debian13-generic-amd64-esxi6.7-vmx15-dgnu10-console.ova`）。
 
 每次选择一个 Debian 版本（默认 13），最多构建四种机型。附加机型可选“不构建”，重复选择自动去重，各机型共用自定义参数。
 

@@ -6,8 +6,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 VERSIONS = {"12": "bookworm", "13": "trixie"}
-# 官方镜像变体按优先级排列：genericcloud 用云内核、镜像更小；generic 用标准内核、兼容性最好。
-# Debian 12/13 共用同一顺序，某个变体缺失时由 source.resolve 回退（见记录 002）。
+# 官方镜像变体：genericcloud 用云内核、镜像更小；generic 用标准内核、兼容性最好。
+# KNOWN_VARIANTS 只用于校验清单和地址是否合法，与选择顺序无关。
+KNOWN_VARIANTS = ("genericcloud", "generic")
+# 选择顺序：按此顺序探测 latest 元数据，缺失则尝试下一个。
+# 调整维护策略只需改这一行，例如：
+#   交换优先级 -> ("generic", "genericcloud")
+#   固定单一变体 -> ("generic",) 或 ("genericcloud",)
 VARIANTS = ("genericcloud", "generic")
 MIRRORS = {
     "official": ("官方源", ""),

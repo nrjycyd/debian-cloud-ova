@@ -7,14 +7,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+from config import VARIANTS
 from release import policy
 
 
-def source_info(version="12", payload=b"qcow2"):
+def source_info(version="12", payload=b"qcow2", variant=None):
     build = "20261106-1234"
     codename = {"12": "bookworm", "13": "trixie"}[version]
-    return {"debian_version": version, "build": build, "variant": "genericcloud",
-            "url": f"https://cloud.debian.org/images/cloud/{codename}/{build}/debian-{version}-genericcloud-amd64-{build}.qcow2",
+    # 默认取当前配置的优先变体，测试不写死具体名称。
+    variant = variant or VARIANTS[0]
+    return {"debian_version": version, "build": build, "variant": variant,
+            "url": f"https://cloud.debian.org/images/cloud/{codename}/{build}/debian-{version}-{variant}-amd64-{build}.qcow2",
             "sha512": hashlib.sha512(payload).hexdigest()}
 
 

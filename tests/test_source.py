@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from tests.support import source_info
+import config
 import source
 
 
@@ -22,44 +23,53 @@ def missing():
 
 
 class SourceTests(unittest.TestCase):
-    def test_prefers_genericcloud_for_every_supported_version(self):
+    def test_prefers_first_variant_in_configured_order(self):
+        # 期望值从 config.VARIANTS 推导：调整优先级或固定单一变体后无需改测试。
         for version in ("12", "13"):
             expected = source_info(version)
             sums = f"{expected['sha512']}  {expected['url'].rsplit('/', 1)[1]}\n".encode()
             with self.subTest(version=version), patch(
                     "source.fetch",
-                    side_effect=[metadata(version, "genericcloud", expected["build"]), sums]) as fetch:
+                    side_effect=[metadata(version, config.VARIANTS[0], expected["build"]), sums]) as fetch:
                 self.assertEqual(source.resolve(version), expected)
                 self.assertTrue(fetch.call_args_list[0].args[0].endswith(
-                    f"/debian-{version}-genericcloud-amd64.json"))
+                    f"/debian-{version}-{config.VARIANTS[0]}-amd64.json"))
                 self.assertNotIn("/latest/", fetch.call_args_list[1].args[0])
 
-    def test_falls_back_to_generic_when_genericcloud_is_missing(self):
-        # 20261111-2659 的发布目录缺少 genericcloud，但 daily 目录仍有，故按序回退而不是写死版本变体。
-        expected = dict(source_info("13"))
-        expected["variant"] = "generic"
-        expected["url"] = expected["url"].replace("genericcloud", "generic")
+    @unittest.skipUnless(len(config.VARIANTS) > 1, "当前配置只有一个候选变体，没有回退")
+    def test_falls_back_to_next_configured_variant(self):
+        expected = source_info("13", variant=config.VARIANTS[1])
         sums = f"{expected['sha512']}  {expected['url'].rsplit('/', 1)[1]}\n".encode()
         warnings = io.StringIO()
         with patch("source.fetch",
-                   side_effect=[missing(), metadata("13", "generic", expected["build"]), sums]), \
+                   side_effect=[missing(), metadata("13", config.VARIANTS[1], expected["build"]), sums]), \
                 contextlib.redirect_stderr(warnings):
             resolved = source.resolve("13")
         self.assertEqual(resolved, expected)
-        self.assertEqual(resolved["variant"], "generic")
-        self.assertIn("debian-13-genericcloud-amd64", warnings.getvalue())
+        self.assertEqual(resolved["variant"], config.VARIANTS[1])
+        self.assertIn(f"debian-13-{config.VARIANTS[0]}-amd64", warnings.getvalue())
 
-    def test_all_variants_missing_reports_every_url(self):
-        with patch("source.fetch", side_effect=[missing(), missing()]), \
+    def test_all_configured_variants_missing_reports_every_url(self):
+        with patch("source.fetch", side_effect=[missing() for _ in config.VARIANTS]), \
                 self.assertRaises(ValueError) as caught:
             source.resolve("13")
-        self.assertIn("debian-13-genericcloud-amd64.json", str(caught.exception))
-        self.assertIn("debian-13-generic-amd64.json", str(caught.exception))
+        for variant in config.VARIANTS:
+            self.assertIn(f"debian-13-{variant}-amd64.json", str(caught.exception))
 
     def test_vendor_mismatch_is_rejected(self):
-        with patch("source.fetch", side_effect=[metadata("13", "genericcloud", "20261106-1234", vendor="azure")]):
+        variant = config.VARIANTS[0]
+        with patch("source.fetch", side_effect=[metadata("13", variant, "20261106-1234", vendor="azure")]):
             with self.assertRaisesRegex(ValueError, "不匹配"):
                 source.resolve("13")
+
+    def test_custom_variant_order_is_respected(self):
+        # 维护时可临时传入其他顺序（例如本次构建固定 generic），不必改配置。
+        expected = source_info("13", variant="generic")
+        sums = f"{expected['sha512']}  {expected['url'].rsplit('/', 1)[1]}\n".encode()
+        with patch("source.fetch",
+                   side_effect=[metadata("13", "generic", expected["build"]), sums]) as fetch:
+            self.assertEqual(source.resolve("13", variants=("generic",)), expected)
+        self.assertIn("debian-13-generic-amd64.json", fetch.call_args_list[0].args[0])
 
     def test_http_server_error_is_retried(self):
         url = "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.json"
@@ -91,13 +101,14 @@ class SourceTests(unittest.TestCase):
     def test_source_identity_cannot_cross_versions_or_hosts(self):
         info = source_info()
         self.assertEqual(source.validate(info, "12"), info)
-        for variant in source.VARIANTS:
-            swapped = info["url"].replace("genericcloud", variant)
+        for variant in config.KNOWN_VARIANTS:
+            swapped = info["url"].replace(info["variant"], variant)
             self.assertEqual(source.validate({**info, "variant": variant, "url": swapped}, "12")["url"], swapped)
+        other = next(variant for variant in config.KNOWN_VARIANTS if variant != info["variant"])
         for invalid in ({**info, "url": "https://example.org/image.qcow2"},
-                        {**info, "url": info["url"].replace("genericcloud", "nocloud")},
+                        {**info, "variant": other},
+                        {**info, "url": info["url"].replace(info["variant"], "nocloud")},
                         {**info, "variant": "nocloud"},
-                        {**info, "variant": "generic"},
                         {**info, "debian_version": "13"}, {**info, "build": "../../latest"}):
             with self.assertRaises(ValueError):
                 source.validate(invalid, "12")

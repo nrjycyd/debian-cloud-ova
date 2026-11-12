@@ -9,11 +9,12 @@ from report import release_notes, release_title, summary
 class ManifestTests(unittest.TestCase):
     def test_current_format_and_password_display(self):
         manifest = sample_manifest()
+        variant = manifest["source"]["variant"]
         self.assertIs(validate(manifest), manifest)
         notes = release_notes(manifest, "123456")
         self.assertIn("密码：`123456`", notes)
-        self.assertIn("源镜像变体：**genericcloud**", notes)
-        self.assertEqual(release_title(manifest), "Debian 13 genericcloud OVA - 20261106-1234")
+        self.assertIn(f"源镜像变体：**{variant}**", notes)
+        self.assertEqual(release_title(manifest), f"Debian 13 {variant} OVA - 20261106-1234")
         self.assertNotIn("123456", str(manifest))
 
     def test_missing_fields_explain_which_format_failed(self):

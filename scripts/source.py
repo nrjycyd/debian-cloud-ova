@@ -9,7 +9,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from config import VARIANTS, VERSIONS
+from config import KNOWN_VARIANTS, VARIANTS, VERSIONS
 
 BASE = "https://cloud.debian.org/images/cloud"
 
@@ -35,10 +35,10 @@ def image_name(version, variant):
     return f"debian-{version}-{variant}-amd64"
 
 
-def resolve(version):
+def resolve(version, variants=VARIANTS):
     codename = VERSIONS[version]
     missing = []
-    for variant in VARIANTS:
+    for variant in variants:
         image = image_name(version, variant)
         url = f"{BASE}/{codename}/latest/{image}.json"
         try:
@@ -82,7 +82,7 @@ def validate(source, version):
     if source["debian_version"] != version or not re.fullmatch(r"[0-9]{8}-[0-9]+", source["build"]):
         raise ValueError("源镜像版本不匹配")
     variant = source.get("variant")
-    if variant not in VARIANTS:
+    if variant not in KNOWN_VARIANTS:
         raise ValueError("源镜像变体无效")
     expected = (f"{BASE}/{VERSIONS[version]}/{source['build']}/"
                 f"{image_name(version, variant)}-{source['build']}.qcow2")
