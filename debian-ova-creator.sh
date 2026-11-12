@@ -61,7 +61,7 @@ export VIRTUAL_SYSTEM_TYPE OVF_OS_ID OVF_OS_TYPE OVA_SOURCE_MANIFEST
 
 DEBIAN_VERSION="$debver"
 DEBIAN_ARCH=amd64
-# 源镜像变体随版本不同（12 为 genericcloud、13 为 generic），内部文件名保持中性。
+# 源镜像变体由 source.resolve 统一按 genericcloud → generic 选择，内部文件名保持中性。
 FILE_NAME="debian-${DEBIAN_VERSION}-cloud-${DEBIAN_ARCH}"
 FILE_ORIG_EXT=qcow2
 FILE_DEST_EXT=vmdk

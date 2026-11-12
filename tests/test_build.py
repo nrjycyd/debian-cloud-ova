@@ -67,7 +67,10 @@ class BuildTests(unittest.TestCase):
                     notes = release_notes(manifest, env["TARGET_PASSWORD"])
                     self.assertEqual(notes.count("## Debian 云镜像 OVA"), 1)
                     self.assertIn("磁盘大小：**3.00 GB**", notes)
-                    self.assertIn("实际磁盘容量：3.00 GiB", summary(manifest, dict(env, BUILD_STATUS="success")))
+                    self.assertIn("源镜像变体：**genericcloud**", notes)
+                    result = summary(manifest, dict(env, BUILD_STATUS="success"))
+                    self.assertIn("实际磁盘容量：3.00 GiB", result)
+                    self.assertIn("源镜像变体：genericcloud", result)
                     self.assertNotIn("123456", json.dumps(manifest))
 
     def test_all_presets_exact_ovf_mapping(self):

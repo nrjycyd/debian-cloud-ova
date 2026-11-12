@@ -89,7 +89,7 @@ assert tag == '20261106-1234'
 assert os.environ['GITHUB_REF'] == 'refs/heads/main'
 if command in ('create', 'edit'):
     assert '--prerelease=false' in sys.argv
-    assert sys.argv[sys.argv.index('--title') + 1] == 'Debian 12 OVA - 20261106-1234'
+    assert sys.argv[sys.argv.index('--title') + 1] == 'Debian 12 genericcloud OVA - 20261106-1234'
 if command == 'view': sys.exit(0 if mode in ('existing', 'upload-error') or (mode == 'race' and history) else 1)
 if command == 'create':
     assert '--target' in sys.argv and os.environ['GITHUB_SHA'] in sys.argv
@@ -103,7 +103,8 @@ if command == 'upload': sys.exit(1 if mode == 'upload-error' else 0)
                 manifest = {"settings": {"version": "12", "vcpu": 2, "memory": 1024, "disk": 4, "hostname": "test",
                                          "username": "debian", "mirror": "official", "install_vm_tools": True,
                                          "timezone": "UTC"},
-                            "source": {"build": "20261106-1234"}, "build_time": "now", "target_count": 1,
+                            "source": {"build": "20261106-1234", "variant": "genericcloud"},
+                            "build_time": "now", "target_count": 1,
                             "release": policy(ref, "12", "20261106-1234"),
                             "images": [{"target": "ESXi 7", "kind": "console", "filename": asset.name,
                                         "username": "debian", "size": "320M", "disk_gib": "4.00", "disk_bytes": 4294967296}]}

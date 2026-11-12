@@ -37,13 +37,16 @@ class SourceTests(unittest.TestCase):
     def test_falls_back_to_generic_when_genericcloud_is_missing(self):
         # 20261111-2659 的发布目录缺少 genericcloud，但 daily 目录仍有，故按序回退而不是写死版本变体。
         expected = dict(source_info("13"))
+        expected["variant"] = "generic"
         expected["url"] = expected["url"].replace("genericcloud", "generic")
         sums = f"{expected['sha512']}  {expected['url'].rsplit('/', 1)[1]}\n".encode()
         warnings = io.StringIO()
         with patch("source.fetch",
                    side_effect=[missing(), metadata("13", "generic", expected["build"]), sums]), \
                 contextlib.redirect_stderr(warnings):
-            self.assertEqual(source.resolve("13"), expected)
+            resolved = source.resolve("13")
+        self.assertEqual(resolved, expected)
+        self.assertEqual(resolved["variant"], "generic")
         self.assertIn("debian-13-genericcloud-amd64", warnings.getvalue())
 
     def test_all_variants_missing_reports_every_url(self):
@@ -90,9 +93,11 @@ class SourceTests(unittest.TestCase):
         self.assertEqual(source.validate(info, "12"), info)
         for variant in source.VARIANTS:
             swapped = info["url"].replace("genericcloud", variant)
-            self.assertEqual(source.validate({**info, "url": swapped}, "12")["url"], swapped)
+            self.assertEqual(source.validate({**info, "variant": variant, "url": swapped}, "12")["url"], swapped)
         for invalid in ({**info, "url": "https://example.org/image.qcow2"},
                         {**info, "url": info["url"].replace("genericcloud", "nocloud")},
+                        {**info, "variant": "nocloud"},
+                        {**info, "variant": "generic"},
                         {**info, "debian_version": "13"}, {**info, "build": "../../latest"}):
             with self.assertRaises(ValueError):
                 source.validate(invalid, "12")

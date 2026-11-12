@@ -3,14 +3,17 @@ import unittest
 
 from tests.support import sample_manifest
 from manifest import validate
-from report import release_notes, summary
+from report import release_notes, release_title, summary
 
 
 class ManifestTests(unittest.TestCase):
     def test_current_format_and_password_display(self):
         manifest = sample_manifest()
         self.assertIs(validate(manifest), manifest)
-        self.assertIn("密码：`123456`", release_notes(manifest, "123456"))
+        notes = release_notes(manifest, "123456")
+        self.assertIn("密码：`123456`", notes)
+        self.assertIn("源镜像变体：**genericcloud**", notes)
+        self.assertEqual(release_title(manifest), "Debian 13 genericcloud OVA - 20261106-1234")
         self.assertNotIn("123456", str(manifest))
 
     def test_missing_fields_explain_which_format_failed(self):
@@ -18,6 +21,12 @@ class ManifestTests(unittest.TestCase):
             manifest = sample_manifest()
             del manifest[key]
             with self.subTest(key=key), self.assertRaisesRegex(ValueError, f"缺少 {key} 字段"):
+                validate(manifest)
+        for key in ("build", "variant"):
+            manifest = sample_manifest()
+            del manifest["source"][key]
+            with self.subTest(key=f"source.{key}"), \
+                    self.assertRaisesRegex(ValueError, f"缺少 source.{key} 字段"):
                 validate(manifest)
         manifest = sample_manifest()
         del manifest["release"]
@@ -40,6 +49,10 @@ class ManifestTests(unittest.TestCase):
             target[key] = value
             with self.subTest(group=group, key=key), self.assertRaises(ValueError):
                 validate(manifest)
+        manifest = copy.deepcopy(base)
+        manifest["source"]["variant"] = "nocloud"
+        with self.assertRaisesRegex(ValueError, "不是受支持的镜像变体"):
+            validate(manifest)
         for changes in ({"filename": "../outside.ova"}, {"kind": "unknown"}, {"disk_bytes": 0}):
             manifest = copy.deepcopy(base)
             manifest["images"][0].update(changes)

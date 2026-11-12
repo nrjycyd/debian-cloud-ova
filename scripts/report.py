@@ -28,6 +28,7 @@ def release_notes(manifest, password):
 **构建配置：**
 - Debian 版本：**{settings['version']}**
 - Debian Build 号：**{manifest['source']['build']}**
+- 源镜像变体：**{manifest['source']['variant']}**
 - vCPU：**{settings['vcpu']}**
 - 内存：**{settings['memory']}MB**
 - 磁盘大小：**{manifest['images'][0]['disk_gib']} GB**
@@ -51,6 +52,12 @@ def release_notes(manifest, password):
 """
 
 
+def release_title(manifest):
+    validate_manifest(manifest)
+    return (f"Debian {manifest['settings']['version']} {manifest['source']['variant']} "
+            f"OVA - {manifest['release']['tag']}")
+
+
 def summary(manifest, env):
     text = f"## Debian {env['TARGET_VERSION']} OVA 构建结果\n\n- 状态：{env['BUILD_STATUS']}\n"
     if manifest is None:
@@ -59,6 +66,7 @@ def summary(manifest, env):
     settings = manifest["settings"]
     text += (f"- 构建机型：{manifest['target_count']}\n"
              f"- 发布标签：{manifest['release']['tag']}\n"
+             f"- 源镜像变体：{manifest['source']['variant']}\n"
              f"- 软件源：{MIRRORS[settings['mirror']][0]}\n"
              f"- 安装 open-vm-tools：{str(settings['install_vm_tools']).lower()}\n"
              f"- 时区：{settings['timezone']}\n"
@@ -82,6 +90,11 @@ def main():
             if Path(filename).name != filename or not filename.endswith(".ova") or not Path(filename).is_file():
                 raise ValueError("发布资产不存在或文件名无效")
             print(filename)
+    elif sys.argv[1] == "title":
+        if manifest is None:
+            raise ValueError("没有可发布的镜像")
+        validate_release(manifest, os.environ)
+        print(release_title(manifest))
     elif sys.argv[1] == "summary":
         if os.environ.get("GITHUB_STEP_SUMMARY"):
             with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as output:

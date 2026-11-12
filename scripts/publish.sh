@@ -6,7 +6,8 @@ NOTES="$RUNNER_TEMP/release-notes.md"
 ASSET_LIST="$RUNNER_TEMP/ova-assets.txt"
 python3 "$ROOT/scripts/report.py" release "$NOTES" > "$ASSET_LIST"
 mapfile -t ASSETS < "$ASSET_LIST"
-TITLE="Debian ${TARGET_VERSION} OVA - ${FINAL_TAG}"
+# 标题由 report.py 统一生成，含系统版本、源镜像变体和 build 号。
+TITLE=$(python3 "$ROOT/scripts/report.py" title)
 
 update_release() {
     gh release upload "$FINAL_TAG" "${ASSETS[@]}" --clobber

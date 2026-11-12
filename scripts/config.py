@@ -6,6 +6,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 VERSIONS = {"12": "bookworm", "13": "trixie"}
+# 官方镜像变体按优先级排列：genericcloud 用云内核、镜像更小；generic 用标准内核、兼容性最好。
+# Debian 12/13 共用同一顺序，某个变体缺失时由 source.resolve 回退（见记录 002）。
+VARIANTS = ("genericcloud", "generic")
 MIRRORS = {
     "official": ("官方源", ""),
     "tuna": ("清华大学", "https://mirrors.tuna.tsinghua.edu.cn/debian"),

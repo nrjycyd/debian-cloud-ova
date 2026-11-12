@@ -9,12 +9,9 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from config import VERSIONS
+from config import VARIANTS, VERSIONS
 
 BASE = "https://cloud.debian.org/images/cloud"
-# 官方变体按优先级尝试：genericcloud 用云内核、镜像更小；generic 用标准内核、兼容性最好。
-# 发布目录曾只提升部分变体（daily 目录同时仍产出 genericcloud），因此不按版本写死。
-VARIANTS = ("genericcloud", "generic")
 
 
 def fetch(url):
@@ -75,8 +72,8 @@ def resolve(version):
         if missing:
             names = ", ".join(name for name, _ in missing)
             print(f"[WARN] 官方 latest 缺少 {names}，本次改用 {image}", file=sys.stderr)
-        return {"debian_version": version, "build": build, "url": f"{directory}/{filename}",
-                "sha512": matches[0].lower()}
+        return {"debian_version": version, "build": build, "variant": variant,
+                "url": f"{directory}/{filename}", "sha512": matches[0].lower()}
     raise ValueError("官方 latest 缺少全部已知变体："
                      + "、".join(url for _, url in missing) + "，停止构建")
 
@@ -84,10 +81,12 @@ def resolve(version):
 def validate(source, version):
     if source["debian_version"] != version or not re.fullmatch(r"[0-9]{8}-[0-9]+", source["build"]):
         raise ValueError("源镜像版本不匹配")
-    directory = f"{BASE}/{VERSIONS[version]}/{source['build']}"
-    names = {f"{image_name(version, variant)}-{source['build']}.qcow2" for variant in VARIANTS}
-    allowed = {f"{directory}/{name}" for name in names}
-    if source["url"] not in allowed or not re.fullmatch(r"[a-f0-9]{128}", source["sha512"]):
+    variant = source.get("variant")
+    if variant not in VARIANTS:
+        raise ValueError("源镜像变体无效")
+    expected = (f"{BASE}/{VERSIONS[version]}/{source['build']}/"
+                f"{image_name(version, variant)}-{source['build']}.qcow2")
+    if source["url"] != expected or not re.fullmatch(r"[a-f0-9]{128}", source["sha512"]):
         raise ValueError("源镜像地址或摘要无效")
     return source
 
