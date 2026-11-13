@@ -55,14 +55,14 @@
 
 ### 自动构建（定时）
 
-`main` 分支每天 **06:00 UTC（北京 14:00）** 检查 Debian 13 的最新 build：
+`main` 分支每天 **06:00 UTC（北京 14:00）** 检查 Debian 12 与 13 的最新 build，两个版本逻辑一致：
 
-- 参数固定来自 [`.github/auto-build.json`](.github/auto-build.json)：4 个机型、console + ssh、清华大学源、`Asia/Shanghai`、主机名 `debian13`、密码 `123456`；
-- 该 build 已发布过（tag `13-<build>`）时直接跳过，不重复构建；
-- 发布成功后只保留最近 2 个 `13-<build>` Release，更早的自动删除；构建失败不会删除旧版本；
+- 参数来自 [`.github/auto-build.json`](.github/auto-build.json)：`defaults` 放共享参数（4 机型、console + ssh、清华大学源、`Asia/Shanghai`、密码 `123456`），`builds` 列出要自动构建的版本及主机名（13 → `debian13`，12 → `debian12`）；
+- 每个版本单独判断：该 build 已发布过（tag `13-<build>` / `12-<build>`）时跳过，不重复构建；两个版本并行构建；
+- 发布成功后每个版本各自只保留最近 2 个 Release，更早的自动删除；构建失败不会删除旧版本；
 - 手动面板（Run workflow）完全不受影响，仍使用原有默认值。
 
-Release 标签带版本前缀（如 `13-20261111-2659`，手动构建 12 时为 `12-<build>`），避免两个版本 build 号相同时冲突；此前使用纯 build 号的历史 Release 保持原样。
+Release 标签带版本前缀（如 `13-20261111-2659`、`12-20261112-2660`），避免两个版本 build 号相同时冲突；此前使用纯 build 号的历史 Release 保持原样。
 
 ### SSH 与登录方式
 

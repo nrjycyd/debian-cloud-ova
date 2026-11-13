@@ -35,7 +35,13 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(workflow["concurrency"]["queue"], "max")
         self.assertNotIn("github.ref", workflow["concurrency"]["group"])
         validate_panel((ROOT / ".github/workflows/build-ova.yml").read_text())
-        steps = workflow["jobs"]["build_ova"]["steps"]
+        jobs = workflow["jobs"]
+        self.assertEqual(jobs["check"]["outputs"]["versions"], "${{ steps.versions.outputs.value }}")
+        build_job = jobs["build_ova"]
+        self.assertEqual(build_job["needs"], "check")
+        self.assertEqual(build_job["strategy"]["matrix"]["version"],
+                         "${{ fromJSON(needs.check.outputs.versions) }}")
+        steps = build_job["steps"]
         publish = next(step for step in steps if step.get("name") == "创建 GitHub Release")
         self.assertEqual(publish["if"], "success() && steps.check.outputs.skip != 'true'")
         check = next(step for step in steps if step.get("name") == "检查是否有新版本")
@@ -44,7 +50,7 @@ class PanelTests(unittest.TestCase):
         prune = next(step for step in steps if step.get("name") == "保留最近版本")
         self.assertIn("scripts/prune.py", prune["run"])
         self.assertIn("--keep 2", prune["run"])
-        for step in steps:
+        for step in steps + jobs["check"]["steps"]:
             self.assertNotIn("${{", step.get("run", ""))
 
     def test_all_choice_defaults_and_shared_options_reject_drift(self):

@@ -201,18 +201,50 @@ on:
     # 每天 06:00 UTC 检查 Debian 13 的最新 build，有新版才构建发布。
     - cron: '0 6 * * *'
 
-# Only main publishes; serialize updates of the same Debian release.
+# Only main publishes; serialize all runs so the same Debian version is never built twice at once.
 concurrency:
-  group: ova-debian-${{ inputs.debian_version || '13' }}
+  group: ova-debian
   cancel-in-progress: false
   queue: max
 
 jobs:
+  check:
+    name: 检查待构建版本
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      versions: ${{ steps.versions.outputs.value }}
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: 收集待构建版本
+        id: versions
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.debian_version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ "$EVENT_NAME" == "schedule" ]]; then
+            echo "value=$(python3 scripts/auto_config.py --pending)" >> "$GITHUB_OUTPUT"
+          else
+            printf 'value=["%s"]\n' "$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
   build_ova:
-    name: 构建 Debian OVA
+    name: 构建 Debian ${{ matrix.version }} OVA
+    needs: check
+    if: "needs.check.outputs.versions != '[]'"
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ${{ fromJSON(needs.check.outputs.versions) }}
     steps:
       - name: 检出仓库
         uses: actions/checkout@v7
@@ -222,6 +254,7 @@ jobs:
       - name: 准备构建参数
         env:
           EVENT_NAME: ${{ github.event_name }}
+          MATRIX_VERSION: ${{ matrix.version }}
           INPUT_VERSION: ${{ inputs.debian_version }}
           INPUT_BUILD: ${{ inputs.build_target }}
           INPUT_BUILD_2: ${{ inputs.build_target_2 }}
@@ -239,7 +272,7 @@ jobs:
           INPUT_TIMEZONE: ${{ inputs.timezone }}
         run: |
           if [[ "$EVENT_NAME" == "schedule" ]]; then
-            python3 scripts/auto_config.py >> "$GITHUB_ENV"
+            python3 scripts/auto_config.py --env "$MATRIX_VERSION" >> "$GITHUB_ENV"
             exit 0
           fi
           {
