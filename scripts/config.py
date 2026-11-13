@@ -9,6 +9,22 @@ VERSIONS = {"12": "bookworm", "13": "trixie"}
 # 官方镜像变体：genericcloud 用云内核、镜像更小；generic 用标准内核、兼容性最好。
 # KNOWN_VARIANTS 只用于校验清单和地址是否合法，与选择顺序无关。
 KNOWN_VARIANTS = ("genericcloud", "generic")
+# 选择顺序：按此顺序探测 latest 元数据，缺失则尝试下一个。
+# 调整维护策略只需改这一行，例如：
+#   交换优先级 -> ("generic", "genericcloud")
+#   固定单一变体 -> ("genericcloud",)；直接写 "genericcloud" 也行（见 variant_policy）
+VARIANTS = ("genericcloud",)
+MIRRORS = {
+    "official": ("官方源", ""),
+    "tuna": ("清华大学", "https://mirrors.tuna.tsinghua.edu.cn/debian"),
+    "ustc": ("中国科学技术大学", "https://mirrors.ustc.edu.cn/debian"),
+    "aliyun": ("阿里云", "https://mirrors.aliyun.com/debian"),
+    "huawei": ("华为云", "https://repo.huaweicloud.com/debian"),
+}
+TIMEZONES = (
+    "UTC", "Asia/Shanghai", "Asia/Hong_Kong", "Asia/Singapore", "Asia/Tokyo",
+    "Europe/London", "Europe/Berlin", "America/New_York",
+)
 
 
 def variant_policy(value):
@@ -21,24 +37,6 @@ def variant_policy(value):
     if not items or len(set(items)) != len(items) or not set(items) <= set(KNOWN_VARIANTS):
         raise ValueError(f"VARIANTS 配置无效：{value!r}，应为 {KNOWN_VARIANTS} 的非空子集")
     return items
-
-
-# 选择顺序：按此顺序探测 latest 元数据，缺失则尝试下一个。
-# 调整维护策略只需改这一行的参数，例如：
-#   交换优先级 -> variant_policy(("generic", "genericcloud"))
-#   固定单一变体 -> variant_policy(("genericcloud",))，直接传 "genericcloud" 也可以
-VARIANTS = variant_policy(("genericcloud",))
-MIRRORS = {
-    "official": ("官方源", ""),
-    "tuna": ("清华大学", "https://mirrors.tuna.tsinghua.edu.cn/debian"),
-    "ustc": ("中国科学技术大学", "https://mirrors.ustc.edu.cn/debian"),
-    "aliyun": ("阿里云", "https://mirrors.aliyun.com/debian"),
-    "huawei": ("华为云", "https://repo.huaweicloud.com/debian"),
-}
-TIMEZONES = (
-    "UTC", "Asia/Shanghai", "Asia/Hong_Kong", "Asia/Singapore", "Asia/Tokyo",
-    "Europe/London", "Europe/Berlin", "America/New_York",
-)
 
 
 def integer(value, minimum, maximum, name):
