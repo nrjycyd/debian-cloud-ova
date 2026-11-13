@@ -19,7 +19,8 @@ class PanelTests(unittest.TestCase):
     def test_panel_catalog_and_workflow_guards(self):
         workflow = yaml.safe_load((ROOT / ".github/workflows/build-ova.yml").read_text())
         triggers = workflow.get("on", workflow.get(True))
-        self.assertEqual(set(triggers), {"workflow_dispatch"})
+        self.assertEqual(set(triggers), {"workflow_dispatch", "schedule"})
+        self.assertEqual(triggers["schedule"], [{"cron": "0 6 * * *"}])
         inputs = triggers["workflow_dispatch"]["inputs"]
         labels = [item["label"] for item in catalog()]
         for slot in ("build_target", "build_target_2", "build_target_3", "build_target_4"):
@@ -36,7 +37,13 @@ class PanelTests(unittest.TestCase):
         validate_panel((ROOT / ".github/workflows/build-ova.yml").read_text())
         steps = workflow["jobs"]["build_ova"]["steps"]
         publish = next(step for step in steps if step.get("name") == "创建 GitHub Release")
-        self.assertEqual(publish["if"], "success()")
+        self.assertEqual(publish["if"], "success() && steps.check.outputs.skip != 'true'")
+        check = next(step for step in steps if step.get("name") == "检查是否有新版本")
+        self.assertEqual(check["if"], "github.event_name == 'schedule'")
+        self.assertIn("gh release view", check["run"])
+        prune = next(step for step in steps if step.get("name") == "保留最近版本")
+        self.assertIn("scripts/prune.py", prune["run"])
+        self.assertIn("--keep 2", prune["run"])
         for step in steps:
             self.assertNotIn("${{", step.get("run", ""))
 
@@ -59,7 +66,7 @@ class PanelTests(unittest.TestCase):
 
     def test_only_main_can_publish(self):
         self.assertEqual(policy("refs/heads/main", "12", "20261106-1234"),
-                         {"tag": "20261106-1234"})
+                         {"tag": "12-20261106-1234"})
         for ref in ("", "refs/heads/test", "refs/heads/feature", "refs/tags/test", "refs/pull/1/merge"):
             with self.assertRaises(ValueError):
                 policy(ref, "12", "20261106-1234")
@@ -88,7 +95,7 @@ history = log.read_text().splitlines() if log.exists() else []
 with log.open('a') as output: output.write(command + '\\n')
 mode = os.environ['TEST_RELEASE_MODE']
 tag = sys.argv[3]
-assert tag == '20261106-1234'
+assert tag == '12-20261106-1234'
 assert os.environ['GITHUB_REF'] == 'refs/heads/main'
 if command in ('create', 'edit'):
     assert '--prerelease=false' in sys.argv

@@ -124,5 +124,12 @@ def download(source, destination):
 
 
 if __name__ == "__main__":
-    # 仅用于查看源镜像元数据，不提供本地 OVA 构建入口。
-    print(json.dumps(resolve(sys.argv[1]), ensure_ascii=False, indent=2))
+    # 查看源镜像元数据；--build 只输出 build 号，供 CI 判断是否需要构建。
+    try:
+        arguments = sys.argv[1:]
+        if arguments[:1] == ["--build"]:
+            print(resolve(arguments[1])["build"])
+        else:
+            print(json.dumps(resolve(arguments[0]), ensure_ascii=False, indent=2))
+    except (ValueError, KeyError, OSError) as error:
+        sys.exit(f"::error::{error}")

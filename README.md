@@ -53,6 +53,17 @@
 
 磁盘小于源镜像容量时自动调整，实际大小见 Release；首次启动自动扩展分区和文件系统。
 
+### 自动构建（定时）
+
+`main` 分支每天 **06:00 UTC（北京 14:00）** 检查 Debian 13 的最新 build：
+
+- 参数固定来自 [`.github/auto-build.json`](.github/auto-build.json)：4 个机型、console + ssh、清华大学源、`Asia/Shanghai`、主机名 `debian13`、密码 `123456`；
+- 该 build 已发布过（tag `13-<build>`）时直接跳过，不重复构建；
+- 发布成功后只保留最近 2 个 `13-<build>` Release，更早的自动删除；构建失败不会删除旧版本；
+- 手动面板（Run workflow）完全不受影响，仍使用原有默认值。
+
+Release 标签带版本前缀（如 `13-20261111-2659`，手动构建 12 时为 `12-<build>`），避免两个版本 build 号相同时冲突；此前使用纯 build 号的历史 Release 保持原样。
+
 ### SSH 与登录方式
 
 | 镜像后缀 | 登录账户 | 登录方式 |

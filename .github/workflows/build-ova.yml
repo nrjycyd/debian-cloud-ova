@@ -197,10 +197,13 @@ on:
         description: '登录密码'
         required: false
         default: '123456'
+  schedule:
+    # 每天 06:00 UTC 检查 Debian 13 的最新 build，有新版才构建发布。
+    - cron: '0 6 * * *'
 
 # Only main publishes; serialize updates of the same Debian release.
 concurrency:
-  group: ova-debian-${{ inputs.debian_version }}
+  group: ova-debian-${{ inputs.debian_version || '13' }}
   cancel-in-progress: false
   queue: max
 
@@ -210,48 +213,98 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    env:
-      TARGET_VERSION: ${{ inputs.debian_version }}
-      TARGET_BUILD: ${{ inputs.build_target }}
-      TARGET_BUILD_2: ${{ inputs.build_target_2 }}
-      TARGET_BUILD_3: ${{ inputs.build_target_3 }}
-      TARGET_BUILD_4: ${{ inputs.build_target_4 }}
-      TARGET_VCPU: ${{ inputs.vcpu }}
-      TARGET_MEMORY: ${{ inputs.memory }}
-      TARGET_DISK: ${{ inputs.disk_size }}
-      TARGET_HOSTNAME: ${{ inputs.hostname }}
-      TARGET_USERNAME: ${{ inputs.username }}
-      TARGET_PASSWORD: ${{ inputs.password }}
-      TARGET_ENABLE_SSH: ${{ inputs.enable_ssh && 'true' || 'false' }}
-      TARGET_APT_MIRROR: ${{ inputs.apt_mirror }}
-      TARGET_INSTALL_VM_TOOLS: ${{ inputs.install_vm_tools && 'true' || 'false' }}
-      TARGET_TIMEZONE: ${{ inputs.timezone }}
-
     steps:
       - name: 检出仓库
         uses: actions/checkout@v7
         with:
           persist-credentials: false
 
+      - name: 准备构建参数
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.debian_version }}
+          INPUT_BUILD: ${{ inputs.build_target }}
+          INPUT_BUILD_2: ${{ inputs.build_target_2 }}
+          INPUT_BUILD_3: ${{ inputs.build_target_3 }}
+          INPUT_BUILD_4: ${{ inputs.build_target_4 }}
+          INPUT_VCPU: ${{ inputs.vcpu }}
+          INPUT_MEMORY: ${{ inputs.memory }}
+          INPUT_DISK: ${{ inputs.disk_size }}
+          INPUT_HOSTNAME: ${{ inputs.hostname }}
+          INPUT_USERNAME: ${{ inputs.username }}
+          INPUT_PASSWORD: ${{ inputs.password }}
+          INPUT_ENABLE_SSH: ${{ inputs.enable_ssh && 'true' || 'false' }}
+          INPUT_APT_MIRROR: ${{ inputs.apt_mirror }}
+          INPUT_INSTALL_VM_TOOLS: ${{ inputs.install_vm_tools && 'true' || 'false' }}
+          INPUT_TIMEZONE: ${{ inputs.timezone }}
+        run: |
+          if [[ "$EVENT_NAME" == "schedule" ]]; then
+            python3 scripts/auto_config.py >> "$GITHUB_ENV"
+            exit 0
+          fi
+          {
+            printf 'TARGET_VERSION=%s\n' "$INPUT_VERSION"
+            printf 'TARGET_BUILD=%s\n' "$INPUT_BUILD"
+            printf 'TARGET_BUILD_2=%s\n' "$INPUT_BUILD_2"
+            printf 'TARGET_BUILD_3=%s\n' "$INPUT_BUILD_3"
+            printf 'TARGET_BUILD_4=%s\n' "$INPUT_BUILD_4"
+            printf 'TARGET_VCPU=%s\n' "$INPUT_VCPU"
+            printf 'TARGET_MEMORY=%s\n' "$INPUT_MEMORY"
+            printf 'TARGET_DISK=%s\n' "$INPUT_DISK"
+            printf 'TARGET_HOSTNAME=%s\n' "$INPUT_HOSTNAME"
+            printf 'TARGET_USERNAME=%s\n' "$INPUT_USERNAME"
+            printf 'TARGET_PASSWORD=%s\n' "$INPUT_PASSWORD"
+            printf 'TARGET_ENABLE_SSH=%s\n' "$INPUT_ENABLE_SSH"
+            printf 'TARGET_APT_MIRROR=%s\n' "$INPUT_APT_MIRROR"
+            printf 'TARGET_INSTALL_VM_TOOLS=%s\n' "$INPUT_INSTALL_VM_TOOLS"
+            printf 'TARGET_TIMEZONE=%s\n' "$INPUT_TIMEZONE"
+          } >> "$GITHUB_ENV"
+
+      - name: 检查是否有新版本
+        id: check
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BUILD=$(python3 scripts/source.py --build "$TARGET_VERSION")
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          if gh release view "${TARGET_VERSION}-${BUILD}" > /dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "[INFO] ${TARGET_VERSION}-${BUILD} 已发布，跳过构建"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: 安装依赖
+        if: steps.check.outputs.skip != 'true'
         run: |
           sudo apt update -qq
           sudo apt install -y --no-install-recommends qemu-utils cloud-image-utils python3 guestfish
 
       - name: 构建 OVA
         id: build
+        if: steps.check.outputs.skip != 'true'
         run: python3 scripts/build.py
 
       - name: 创建 GitHub Release
-        if: success()
+        if: "success() && steps.check.outputs.skip != 'true'"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUILD_MANIFEST: ${{ steps.build.outputs.BUILD_MANIFEST }}
           FINAL_TAG: ${{ steps.build.outputs.FINAL_TAG }}
         run: bash scripts/publish.sh
 
+      - name: 保留最近版本
+        if: "success() && github.event_name == 'schedule' && steps.check.outputs.skip != 'true'"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUILD_MANIFEST: ${{ steps.build.outputs.BUILD_MANIFEST }}
+        run: |
+          ASSETS=$(python3 -c 'import json, os; print(len(json.load(open(os.environ["BUILD_MANIFEST"]))["images"]))')
+          python3 scripts/prune.py --version "$TARGET_VERSION" --keep 2 --expect-assets "$ASSETS"
+
       - name: 构建摘要
-        if: always()
+        if: "always() && steps.check.outputs.skip != 'true'"
         env:
           BUILD_STATUS: ${{ job.status }}
           BUILD_MANIFEST: ${{ steps.build.outputs.BUILD_MANIFEST }}

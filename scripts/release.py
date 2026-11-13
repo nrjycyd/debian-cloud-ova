@@ -9,7 +9,8 @@ def policy(ref, version, build):
     if version not in VERSIONS or not re.fullmatch(r"[0-9]{8}-[0-9]+", build):
         raise ValueError("发布版本或官方 build 号无效")
     if ref == "refs/heads/main":
-        return {"tag": build}
+        # tag 带版本前缀，避免 Debian 12/13 的 build 号相同而冲突。
+        return {"tag": f"{version}-{build}"}
     raise ValueError("发布仅支持 main 分支，其他 ref 不允许发布")
 
 

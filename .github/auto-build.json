@@ -1,0 +1,19 @@
+{
+  "version": "13",
+  "targets": [
+    "ESXi 6.7 U3 + DGNU 10 (vmx-15)",
+    "ESXi 7.0 U3 + DGNU 11 (vmx-19)",
+    "ESXi 8.0 U3 + DGNU 13 (vmx-21)",
+    "ESXi 9.0+ + DGNU 13 (vmx-22)"
+  ],
+  "vcpu": 2,
+  "memory": 1024,
+  "disk": 4,
+  "hostname": "debian13",
+  "username": "debian",
+  "password": "123456",
+  "enable_ssh": true,
+  "apt_mirror": "清华大学",
+  "install_vm_tools": true,
+  "timezone": "Asia/Shanghai"
+}
