@@ -13,7 +13,7 @@ KNOWN_VARIANTS = ("genericcloud", "generic")
 # 调整维护策略只需改这一行，例如：
 #   交换优先级 -> ("generic", "genericcloud")
 #   固定单一变体 -> ("generic",) 或 ("genericcloud",)
-VARIANTS = ("genericcloud", "generic")
+VARIANTS = ("genericcloud")
 MIRRORS = {
     "official": ("官方源", ""),
     "tuna": ("清华大学", "https://mirrors.tuna.tsinghua.edu.cn/debian"),
