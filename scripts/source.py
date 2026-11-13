@@ -9,7 +9,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from config import KNOWN_VARIANTS, VARIANTS, VERSIONS
+from config import KNOWN_VARIANTS, VARIANTS, VERSIONS, variant_policy
 
 BASE = "https://cloud.debian.org/images/cloud"
 
@@ -38,7 +38,7 @@ def image_name(version, variant):
 def resolve(version, variants=VARIANTS):
     codename = VERSIONS[version]
     missing = []
-    for variant in variants:
+    for variant in variant_policy(variants):
         image = image_name(version, variant)
         url = f"{BASE}/{codename}/latest/{image}.json"
         try:

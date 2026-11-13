@@ -8,9 +8,11 @@ from pathlib import Path
 import yaml
 
 from tests.support import ROOT
-from config import MIRRORS, TIMEZONES, VARIANTS, VERSIONS, catalog
+from config import MIRRORS, TIMEZONES, VARIANTS, VERSIONS, catalog, variant_policy
 from panel import validate as validate_panel
 from release import policy
+
+POLICY = variant_policy(VARIANTS)
 
 
 class PanelTests(unittest.TestCase):
@@ -76,7 +78,7 @@ class PublishTests(unittest.TestCase):
             with self.subTest(mode=mode, ref=ref), tempfile.TemporaryDirectory() as directory:
                 work = Path(directory)
                 executable = work / "gh"
-                title = f"Debian 12 · {VARIANTS[0]}"
+                title = f"Debian 12 · {POLICY[0]}"
                 executable.write_text('''#!/usr/bin/python3
 import json, os, sys
 from pathlib import Path
@@ -104,7 +106,7 @@ if command == 'upload': sys.exit(1 if mode == 'upload-error' else 0)
                 manifest = {"settings": {"version": "12", "vcpu": 2, "memory": 1024, "disk": 4, "hostname": "test",
                                          "username": "debian", "mirror": "official", "install_vm_tools": True,
                                          "timezone": "UTC"},
-                            "source": {"build": "20261106-1234", "variant": VARIANTS[0]},
+                            "source": {"build": "20261106-1234", "variant": POLICY[0]},
                             "build_time": "now", "target_count": 1,
                             "release": policy(ref, "12", "20261106-1234"),
                             "images": [{"target": "ESXi 7", "kind": "console", "filename": asset.name,

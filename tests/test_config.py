@@ -8,10 +8,23 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from tests.support import environment
-from config import catalog, from_environment, integer, select_targets, target, validate
+from config import (KNOWN_VARIANTS, VARIANTS, catalog, from_environment, integer, select_targets,
+                    target, validate, variant_policy)
 
 
 class ConfigTests(unittest.TestCase):
+    def test_variant_policy_is_normalized_and_validated(self):
+        policy = variant_policy(VARIANTS)
+        self.assertTrue(policy)
+        self.assertLessEqual(set(policy), set(KNOWN_VARIANTS))
+        self.assertEqual(len(set(policy)), len(policy))
+        # 漏写结尾逗号时退化为字符串，也应被当成单一变体而不是逐字符遍历。
+        self.assertEqual(variant_policy("genericcloud"), ("genericcloud",))
+        self.assertEqual(variant_policy(("generic", "genericcloud")), ("generic", "genericcloud"))
+        for invalid in ((), ("nocloud",), ("generic", "generic")):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                variant_policy(invalid)
+
     def test_catalog_rejects_label_drift_and_duplicates(self):
         items = catalog()
         changes = (

@@ -11,6 +11,8 @@ from tests.support import source_info
 import config
 import source
 
+VARIANTS = config.variant_policy(config.VARIANTS)
+
 
 def metadata(version, variant, build, **overrides):
     info = {"release": source.VERSIONS[version], "arch": "amd64", "vendor": variant, "version": build}
@@ -24,40 +26,40 @@ def missing():
 
 class SourceTests(unittest.TestCase):
     def test_prefers_first_variant_in_configured_order(self):
-        # 期望值从 config.VARIANTS 推导：调整优先级或固定单一变体后无需改测试。
+        # 期望值从 VARIANTS 推导：调整优先级或固定单一变体后无需改测试。
         for version in ("12", "13"):
             expected = source_info(version)
             sums = f"{expected['sha512']}  {expected['url'].rsplit('/', 1)[1]}\n".encode()
             with self.subTest(version=version), patch(
                     "source.fetch",
-                    side_effect=[metadata(version, config.VARIANTS[0], expected["build"]), sums]) as fetch:
+                    side_effect=[metadata(version, VARIANTS[0], expected["build"]), sums]) as fetch:
                 self.assertEqual(source.resolve(version), expected)
                 self.assertTrue(fetch.call_args_list[0].args[0].endswith(
-                    f"/debian-{version}-{config.VARIANTS[0]}-amd64.json"))
+                    f"/debian-{version}-{VARIANTS[0]}-amd64.json"))
                 self.assertNotIn("/latest/", fetch.call_args_list[1].args[0])
 
-    @unittest.skipUnless(len(config.VARIANTS) > 1, "当前配置只有一个候选变体，没有回退")
+    @unittest.skipUnless(len(VARIANTS) > 1, "当前配置只有一个候选变体，没有回退")
     def test_falls_back_to_next_configured_variant(self):
-        expected = source_info("13", variant=config.VARIANTS[1])
+        expected = source_info("13", variant=VARIANTS[1])
         sums = f"{expected['sha512']}  {expected['url'].rsplit('/', 1)[1]}\n".encode()
         warnings = io.StringIO()
         with patch("source.fetch",
-                   side_effect=[missing(), metadata("13", config.VARIANTS[1], expected["build"]), sums]), \
+                   side_effect=[missing(), metadata("13", VARIANTS[1], expected["build"]), sums]), \
                 contextlib.redirect_stderr(warnings):
             resolved = source.resolve("13")
         self.assertEqual(resolved, expected)
-        self.assertEqual(resolved["variant"], config.VARIANTS[1])
-        self.assertIn(f"debian-13-{config.VARIANTS[0]}-amd64", warnings.getvalue())
+        self.assertEqual(resolved["variant"], VARIANTS[1])
+        self.assertIn(f"debian-13-{VARIANTS[0]}-amd64", warnings.getvalue())
 
     def test_all_configured_variants_missing_reports_every_url(self):
-        with patch("source.fetch", side_effect=[missing() for _ in config.VARIANTS]), \
+        with patch("source.fetch", side_effect=[missing() for _ in VARIANTS]), \
                 self.assertRaises(ValueError) as caught:
             source.resolve("13")
-        for variant in config.VARIANTS:
+        for variant in VARIANTS:
             self.assertIn(f"debian-13-{variant}-amd64.json", str(caught.exception))
 
     def test_vendor_mismatch_is_rejected(self):
-        variant = config.VARIANTS[0]
+        variant = VARIANTS[0]
         with patch("source.fetch", side_effect=[metadata("13", variant, "20261106-1234", vendor="azure")]):
             with self.assertRaisesRegex(ValueError, "不匹配"):
                 source.resolve("13")
